@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "EDWARD MD Dashboard"
+version = "1.0.0"
+id = "artifacts/edward-md"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22427
+
+[services.development]
+run = "pnpm --filter @workspace/edward-md run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/edward-md", "run", "build" ]
+publicDir = "artifacts/edward-md/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22427"
+BASE_PATH = "/"
