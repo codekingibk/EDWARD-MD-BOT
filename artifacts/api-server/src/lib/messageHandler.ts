@@ -1,6 +1,16 @@
 import type { WASocket, BaileysEventMap } from '@whiskeysockets/baileys';
 import { logger } from './logger';
-import { getPlugin, getPluginStates } from './plugins';
+import { getPlugin, getPluginStates, incrementPluginUsage } from './plugins';
+
+let _store: any = null;
+async function getStore() {
+  if (!_store) {
+    try {
+      _store = (await import('../../lib/lightweight_store.js')).default;
+    } catch {}
+  }
+  return _store;
+}
 
 const log = logger.child({ module: 'MessageHandler' });
 
@@ -70,8 +80,39 @@ export async function handleMessage(
         onStats({ messagesReceived: 1 });
       }
 
+      // Sync bot mode from store (set via .mode command on WhatsApp)
+      try {
+        const store = await getStore();
+        if (store) {
+          const botMode = await store.getBotMode();
+          if (botMode === 'self' || botMode === 'private') {
+            config.selfMode = true;
+            config.publicMode = false;
+          } else if (botMode === 'public') {
+            config.selfMode = false;
+            config.publicMode = true;
+          } else if (botMode === 'groups') {
+            config.selfMode = false;
+            config.publicMode = false;
+          } else if (botMode === 'inbox') {
+            config.selfMode = false;
+            config.publicMode = false;
+          }
+        }
+      } catch {}
+
       if (config.selfMode && !fromMe) continue;
       if (!config.publicMode && !isOwner && !fromMe) continue;
+
+      // Handle groups/inbox modes
+      try {
+        const store = await getStore();
+        if (store) {
+          const botMode = await store.getBotMode();
+          if (botMode === 'groups' && !isGroup && !isOwner && !fromMe) continue;
+          if (botMode === 'inbox' && isGroup && !isOwner && !fromMe) continue;
+        }
+      } catch {}
 
       if (config.autoRead && !fromMe) {
         await sock.readMessages([msg.key]).catch(() => {});
@@ -166,6 +207,7 @@ export async function handleMessage(
       try {
         onLog('info', `CMD: ${usedPrefix}${cmdLower} from ${senderId.split('@')[0]}`, 'Commands');
         onStats({ commandsExecuted: 1 });
+        incrementPluginUsage(cmdLower);
         await plugin.handler(sock, msg, args, context);
 
         if (config.autoReact) {

@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import type { Server as SocketIOServer } from 'socket.io';
 import { logger } from "../lib/logger";
 import { getWhatsAppManager } from "../lib/whatsapp";
-import { getAllPluginsMeta, setPluginState, downloadAllPlugins, loadPlugins } from "../lib/plugins";
+import { getAllPluginsMeta, setPluginState, downloadAllPlugins, loadPlugins, getPluginUsageStats } from "../lib/plugins";
 
 const log = logger.child({ module: "edward" });
 
@@ -161,6 +161,11 @@ router.post('/restart', async (_req, res) => {
   } catch (err: any) {
     res.status(500).json({ ok: false, error: err.message });
   }
+});
+
+router.get('/plugin-stats', (_req, res) => {
+  const stats = getPluginUsageStats();
+  res.json(stats);
 });
 
 router.post('/execute', async (req, res) => {

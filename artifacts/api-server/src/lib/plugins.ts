@@ -67,6 +67,7 @@ const PLUGIN_FILES = [
 let loadedPlugins: Map<string, PluginDef> = new Map();
 let pluginStates: Record<string, boolean> = {};
 let pluginsMeta: Record<string, { name: string; category: string; description: string; enabled: boolean }> = {};
+const pluginUsageStats: Map<string, number> = new Map();
 
 function ensureDir() {
   if (!existsSync(PLUGINS_DIR)) mkdirSync(PLUGINS_DIR, { recursive: true });
@@ -113,6 +114,7 @@ export async function downloadAllPlugins(onProgress?: (msg: string) => void): Pr
 export async function loadPlugins(): Promise<void> {
   ensureDir();
   loadedPlugins.clear();
+  (globalThis as any)._pluginRegistry = [];
 
   const files = readdirSync(PLUGINS_DIR).filter(f => f.endsWith('.js'));
   if (files.length === 0) {
@@ -145,6 +147,17 @@ export async function loadPlugins(): Promise<void> {
           enabled: pluginStates[plugin.command] !== false,
         };
       }
+
+      if (!pluginUsageStats.has(plugin.command)) {
+        pluginUsageStats.set(plugin.command, 0);
+      }
+
+      ((globalThis as any)._pluginRegistry as any[]).push({
+        command: plugin.command,
+        category: plugin.category || 'general',
+        description: plugin.description || '',
+        aliases: plugin.aliases || [],
+      });
 
       loaded++;
     } catch (err: any) {
@@ -182,3 +195,17 @@ export function setPluginState(id: string, enabled: boolean) {
 export function getPluginStates() { return pluginStates; }
 
 export function getLoadedPlugins() { return loadedPlugins; }
+
+export function incrementPluginUsage(command: string) {
+  const key = command.toLowerCase();
+  pluginUsageStats.set(key, (pluginUsageStats.get(key) || 0) + 1);
+}
+
+export function getPluginUsageStats(): { command: string; usage: number; category: string }[] {
+  const result: { command: string; usage: number; category: string }[] = [];
+  for (const [cmd, count] of pluginUsageStats.entries()) {
+    const meta = pluginsMeta[cmd];
+    result.push({ command: cmd, usage: count, category: meta?.category || 'general' });
+  }
+  return result.sort((a, b) => b.usage - a.usage);
+}

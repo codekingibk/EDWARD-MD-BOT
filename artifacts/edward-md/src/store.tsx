@@ -207,6 +207,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }).catch(() => {});
   }, [pluginsLoaded]);
 
+  // Fetch real plugin usage stats every 30s
+  useEffect(() => {
+    function fetchUsageStats() {
+      fetch('/api/plugin-stats').then(r => r.json()).then((stats: { command: string; usage: number; category: string }[]) => {
+        if (!Array.isArray(stats) || stats.length === 0) return;
+        setPlugins(prev => {
+          const usageMap = new Map(stats.map(s => [s.command, s.usage]));
+          return prev.map(p => ({
+            ...p,
+            usageCount: usageMap.has(p.command) ? usageMap.get(p.command)! : p.usageCount,
+          }));
+        });
+      }).catch(() => {});
+    }
+    fetchUsageStats();
+    const iv = setInterval(fetchUsageStats, 30000);
+    return () => clearInterval(iv);
+  }, []);
+
   // Socket.IO
   useEffect(() => {
     try {
