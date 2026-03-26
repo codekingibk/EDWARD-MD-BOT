@@ -280,7 +280,7 @@ export default function Pairing() {
                   <div className="bg-bg-input rounded-xl p-6 mb-4 text-center">
                     <div className="w-8 h-8 border-2 border-accent-blue/30 border-t-accent-blue rounded-full animate-spin mx-auto mb-2" />
                     <p className="text-xs text-text-muted">Requesting code from WhatsApp...</p>
-                    <p className="text-[10px] text-text-muted mt-1">This takes about 3 seconds</p>
+                    <p className="text-[10px] text-text-muted mt-1">This takes about 5 seconds</p>
                   </div>
                 )}
 

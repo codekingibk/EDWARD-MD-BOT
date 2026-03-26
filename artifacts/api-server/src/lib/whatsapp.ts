@@ -1,4 +1,4 @@
-import { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore } from '@whiskeysockets/baileys';
+import { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore, Browsers } from '@whiskeysockets/baileys';
 import type { WASocket, ConnectionState, BaileysEventMap } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import type { Server as SocketIOServer } from 'socket.io';
@@ -119,10 +119,13 @@ export class WhatsAppManager {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, logger.child({ module: 'KeyStore' }) as any),
       },
-      browser: ['EDWARD MD', 'Chrome', '3.0.0'],
+      // Must use official Browsers preset — custom strings cause WhatsApp to reject pairing codes
+      browser: Browsers.ubuntu('Chrome'),
       generateHighQualityLinkPreview: false,
       getMessage: async () => undefined,
       syncFullHistory: false,
+      // Give 5 minutes per QR cycle so socket stays alive while user enters pairing code
+      qrTimeout: 300_000,
     });
 
     this.socket = sock;
@@ -255,12 +258,12 @@ export class WhatsAppManager {
           // Format code as XXXX-XXXX for readability
           const formatted = code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code;
           this.emit('pairingCode', formatted);
-          this.emitLog('success', `Pairing code ready: ${formatted}`, 'Pairing');
+          this.emitLog('success', `Pairing code ready: ${formatted} — enter it in WhatsApp now`, 'Pairing');
         } catch (err: any) {
           this.emitLog('error', `Failed to get pairing code: ${err.message}`, 'Pairing');
           this.emit('pairingCodeError', err.message);
         }
-      }, 3000);
+      }, 5000); // 5s to ensure connection is fully established before requesting code
     }
 
     return sock;
