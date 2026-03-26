@@ -90,8 +90,17 @@ export class WhatsAppManager {
     if (pairingPhone) {
       this.pairingPhone = pairingPhone;
       this.connectionMode = 'code';
-    } else {
+    } else if (!this.pairingPhone) {
       this.connectionMode = 'qr';
+    }
+    // else: reconnecting after 515/logout — keep existing connectionMode and pairingPhone
+
+    // Always close existing socket cleanly before creating a new one
+    // to prevent WhatsApp seeing duplicate connections (causes device_removed)
+    if (this.socket) {
+      try { this.socket.end(undefined); } catch {}
+      this.socket = null;
+      await new Promise(r => setTimeout(r, 500)); // brief pause to let WA close TCP
     }
 
     this.emitLog('info', 'Initializing Baileys WhatsApp connection...', 'Baileys');
@@ -150,15 +159,29 @@ export class WhatsAppManager {
       if (connection === 'close') {
         const boomErr = lastDisconnect?.error as Boom;
         const reason = boomErr?.output?.statusCode;
+        const errMsg = (boomErr?.message ?? '').toLowerCase();
         const isLoggedOut = reason === DisconnectReason.loggedOut;
+        const isDeviceRemoved = errMsg.includes('device_removed') || errMsg.includes('conflict');
         const isForbidden = reason === 401;
 
         this.socket = null;
+
+        // 515 = "Stream Errored (restart required)" — WhatsApp sends this right after
+        // successful pairing to force a clean reconnect. Reconnect immediately, DO NOT clear session.
+        const isRestartRequired = reason === 515 || errMsg.includes('restart required');
+        if (isRestartRequired && !this.isShuttingDown) {
+          this.emitLog('info', 'WhatsApp requested reconnect after pairing — reconnecting...', 'Baileys');
+          setTimeout(() => this.connect(), 1000); // reconnect quickly with saved credentials
+          return;
+        }
+
         this.emit('disconnected', { reason });
 
-        if (isLoggedOut || isForbidden) {
-          // Stale/invalid session — clear it so next attempt starts fresh
+        if (isLoggedOut || isDeviceRemoved || (isForbidden && !isRestartRequired)) {
+          // Session was rejected or device removed — clear so user can start fresh
           this.clearSession();
+          this.pairingPhone = null;
+          this.connectionMode = null;
           this.emitLog('warn', 'Session rejected by WhatsApp — cleared. Please reconnect.', 'Baileys');
           this.emit('sessionCleared');
           this.reconnectAttempts = 0;
@@ -168,7 +191,7 @@ export class WhatsAppManager {
         const isQrTimeout = reason === DisconnectReason.timedOut || reason === 408;
 
         if (isQrTimeout && this.connectionMode === 'code') {
-          // QR timed out but user may still enter pairing code — do NOT auto-reconnect
+          // QR timed out while waiting for pairing code entry — clear and inform user
           this.emitLog('warn', 'Connection timed out. If you got a pairing code, it may have expired. Please try again.', 'Pairing');
           this.clearSession();
           this.emit('sessionCleared');
