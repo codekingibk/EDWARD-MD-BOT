@@ -5,7 +5,9 @@ import type { Server as SocketIOServer } from 'socket.io';
 import QRCode from 'qrcode';
 import { logger } from './logger';
 import path from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, rmSync } from 'fs';
+import { handleMessage, handleCall, type HandlerConfig } from './messageHandler';
+import { downloadAllPlugins, loadPlugins } from './plugins';
 
 const log = logger.child({ module: 'WhatsApp' });
 
@@ -17,6 +19,29 @@ export class WhatsAppManager {
   private maxReconnects = 5;
   private reconnectDelay = 5000;
   private isShuttingDown = false;
+  private pairingPhone: string | null = null;
+  private config: HandlerConfig = {
+    prefix: '.',
+    botName: 'EDWARD MD',
+    ownerNumber: '',
+    publicMode: true,
+    selfMode: false,
+    autoRead: true,
+    autoTyping: true,
+    antiCall: true,
+    antiLink: false,
+    antiSpam: true,
+    autoReact: false,
+    statusSeen: true,
+    statusReply: false,
+    alwaysOnline: true,
+    antiDelete: true,
+    antiViewOnce: true,
+    welcomeMessage: true,
+    goodbyeMessage: true,
+    language: 'en',
+    version: '2.0.0',
+  };
   private stats = {
     messagesReceived: 0,
     messagesSent: 0,
@@ -43,9 +68,23 @@ export class WhatsAppManager {
     log[level === 'success' ? 'info' : level]({ source }, message);
   }
 
+  updateConfig(update: Partial<HandlerConfig>) {
+    Object.assign(this.config, update);
+  }
+
   async connect(pairingPhone?: string) {
     this.isShuttingDown = false;
+    if (pairingPhone) this.pairingPhone = pairingPhone;
+
     this.emitLog('info', 'Initializing Baileys WhatsApp connection...', 'Baileys');
+
+    try {
+      await downloadAllPlugins((msg) => this.emitLog('info', msg, 'PluginLoader'));
+      await loadPlugins();
+      this.emitLog('success', 'Plugins loaded successfully', 'PluginLoader');
+    } catch (err: any) {
+      this.emitLog('warn', `Plugin load warning: ${err.message}`, 'PluginLoader');
+    }
 
     const { version, isLatest } = await fetchLatestBaileysVersion();
     this.emitLog('info', `Using WA v${version.join('.')} (latest: ${isLatest})`, 'Baileys');
@@ -63,6 +102,7 @@ export class WhatsAppManager {
       browser: ['EDWARD MD', 'Chrome', '3.0.0'],
       generateHighQualityLinkPreview: false,
       getMessage: async () => undefined,
+      syncFullHistory: false,
     });
 
     this.socket = sock;
@@ -79,7 +119,7 @@ export class WhatsAppManager {
           });
           this.emit('qr', qrDataUrl);
           this.emitLog('info', 'QR code generated — scan with WhatsApp', 'Pairing');
-        } catch (err) {
+        } catch {
           this.emitLog('error', 'Failed to generate QR image', 'Pairing');
         }
       }
@@ -105,6 +145,9 @@ export class WhatsAppManager {
         this.reconnectAttempts = 0;
         this.emit('connected', { jid: sock.user?.id, name: sock.user?.name });
         this.emitLog('success', `Connected as ${sock.user?.name ?? sock.user?.id}`, 'Baileys');
+        if (this.config.alwaysOnline) {
+          await sock.sendPresenceUpdate('available').catch(() => {});
+        }
         this.emitStats();
       }
     });
@@ -112,27 +155,56 @@ export class WhatsAppManager {
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('messages.upsert', (upsert: BaileysEventMap['messages.upsert']) => {
-      const { messages, type } = upsert;
-      if (type === 'notify') {
-        for (const msg of messages) {
-          if (!msg.key.fromMe) {
-            this.stats.messagesReceived++;
-            const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
-            if (text.startsWith('.') || text.startsWith('!') || text.startsWith('/')) {
-              this.stats.commandsExecuted++;
-              this.emitLog('info', `Command: ${text.slice(0, 60)}`, 'MessageHandler');
-            }
-            this.emitStats();
-          }
-        }
-      }
+      handleMessage(
+        sock,
+        upsert,
+        this.config,
+        (inc) => {
+          if (inc.messagesReceived) this.stats.messagesReceived += inc.messagesReceived;
+          if (inc.commandsExecuted) this.stats.commandsExecuted += inc.commandsExecuted;
+          if (inc.activeUsers) this.stats.activeUsers += inc.activeUsers;
+          this.emitStats();
+        },
+        (level: string, msg: string, src?: string) => this.emitLog(level as any, msg, src),
+      ).catch((err) => log.error({ err: err.message }, 'Message handler error'));
+    });
+
+    sock.ev.on('call', (calls: any[]) => {
+      handleCall(
+        sock,
+        calls,
+        this.config,
+        (level: string, msg: string, src?: string) => this.emitLog(level as any, msg, src),
+      ).catch(() => {});
     });
 
     sock.ev.on('groups.upsert', (groups: BaileysEventMap['groups.upsert']) => {
       this.stats.activeGroups = Math.max(this.stats.activeGroups, groups.length);
+      this.emitStats();
     });
 
-    // Request pairing code if phone provided (instead of QR)
+    sock.ev.on('group-participants.update', async (update: any) => {
+      const { id, participants, action } = update;
+      if (action === 'add' && this.config.welcomeMessage) {
+        for (const jid of participants) {
+          await sock.sendMessage(id, {
+            text: `👋 *Welcome to the group!*\n\n@${jid.split('@')[0]} has joined. We're glad to have you here! 🎉`,
+            mentions: [jid],
+          }).catch(() => {});
+        }
+        this.emitLog('info', `Welcome message sent in ${id}`, 'Groups');
+      }
+      if (action === 'remove' && this.config.goodbyeMessage) {
+        for (const jid of participants) {
+          await sock.sendMessage(id, {
+            text: `👋 *Goodbye!*\n\n@${jid.split('@')[0]} has left the group. We'll miss you!`,
+            mentions: [jid],
+          }).catch(() => {});
+        }
+        this.emitLog('info', `Goodbye message sent in ${id}`, 'Groups');
+      }
+    });
+
     if (pairingPhone && !sock.authState.creds.registered) {
       setTimeout(async () => {
         try {
@@ -169,10 +241,22 @@ export class WhatsAppManager {
     }
   }
 
+  async logout() {
+    this.isShuttingDown = true;
+    if (this.socket) {
+      await this.socket.logout().catch(() => {});
+      this.socket.end(undefined);
+      this.socket = null;
+    }
+    try { rmSync(this.authDir, { recursive: true, force: true }); mkdirSync(this.authDir, { recursive: true }); } catch {}
+    this.emit('disconnected', { reason: 'logout' });
+    this.emitLog('info', 'Session cleared and logged out', 'Baileys');
+  }
+
   async restart() {
     await this.disconnect();
     this.isShuttingDown = false;
-    await this.connect();
+    await this.connect(this.pairingPhone || undefined);
   }
 
   getStatus() {
@@ -184,6 +268,7 @@ export class WhatsAppManager {
   }
 
   getSocket() { return this.socket; }
+  getConfig() { return this.config; }
 }
 
 let instance: WhatsAppManager | null = null;

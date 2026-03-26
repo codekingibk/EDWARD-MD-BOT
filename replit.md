@@ -1,20 +1,28 @@
-# Workspace
+# EDWARD MD - WhatsApp Bot Dashboard
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+EDWARD MD is a full-stack WhatsApp bot powered by Baileys, with a React dashboard for management. pnpm workspace monorepo using TypeScript.
 
 ## Stack
 
+- **WhatsApp**: @whiskeysockets/baileys (real WhatsApp connection)
+- **Backend**: Express 5 + Socket.IO
+- **Frontend**: React + Vite + Tailwind CSS
+- **Plugins**: MEGA-MD plugins (downloaded from GitHub, 110+ commands)
 - **Monorepo tool**: pnpm workspaces
 - **Node.js version**: 24
 - **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+- **Build**: esbuild
+
+## Key Features
+
+- Real WhatsApp connection via QR code or pairing code
+- 110+ plugins from MEGA-MD (alive, ping, calc, jokes, group management, etc.)
+- Live dashboard with stats, logs, plugin manager, terminal
+- Anti-spam, anti-call, anti-link, auto-read, auto-typing features
+- Welcome/goodbye messages for groups
+- Plugin toggle system with real-time sync
 
 ## Structure
 

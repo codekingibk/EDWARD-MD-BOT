@@ -118,6 +118,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return saved ? { ...defaultConfig, ...JSON.parse(saved) } : defaultConfig;
   });
   const [plugins, setPlugins] = useState<Plugin[]>(defaultPlugins);
+  const [pluginsLoaded, setPluginsLoaded] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const logIdRef = useRef(0);
   const socketRef = useRef<Socket | null>(null);
@@ -178,6 +179,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { localStorage.setItem('edward-md-config', JSON.stringify(botConfig)); }, [botConfig]);
   useEffect(() => { saveUsers(allUsers); }, [allUsers]);
+
+  useEffect(() => {
+    if (pluginsLoaded) return;
+    fetch('/api/plugins').then(r => r.json()).then((apiPlugins: any[]) => {
+      if (!Array.isArray(apiPlugins) || apiPlugins.length === 0) return;
+      setPlugins(prev => {
+        const merged = new Map<string, Plugin>();
+        for (const p of prev) merged.set(p.id, p);
+        for (const ap of apiPlugins) {
+          const existing = merged.get(ap.id);
+          merged.set(ap.id, {
+            id: ap.id,
+            name: ap.name || ap.id,
+            command: ap.id,
+            usage: ap.usage || `.${ap.id}`,
+            description: ap.description || '',
+            category: ap.category || 'general',
+            enabled: existing ? existing.enabled : ap.enabled !== false,
+            cooldown: existing?.cooldown || 0,
+            usageCount: existing?.usageCount || 0,
+          });
+        }
+        return Array.from(merged.values());
+      });
+      setPluginsLoaded(true);
+    }).catch(() => {});
+  }, [pluginsLoaded]);
 
   // Socket.IO
   useEffect(() => {

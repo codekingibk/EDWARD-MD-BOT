@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../store';
-import { QrCode, Phone, Smartphone, Wifi, RefreshCw, Copy, Check, AlertCircle, Bot, ChevronRight, Zap } from 'lucide-react';
+import { QrCode, Phone, Smartphone, Wifi, RefreshCw, Copy, Check, AlertCircle, Bot, ChevronRight, Zap, Loader2 } from 'lucide-react';
 
 export default function Pairing() {
   const { connectionMethod, setConnectionMethod, isConnected, setIsConnected, phoneNumber, setPhoneNumber, pairingCode, setPairingCode, addLog, botConfig, qrCode, setQrCode } = useApp();
@@ -111,15 +111,12 @@ export default function Pairing() {
 
             <div className="glass rounded-2xl p-4">
               <div className="flex items-start gap-3">
-                <AlertCircle className="w-4 h-4 text-accent-orange shrink-0 mt-0.5" />
+                <Wifi className="w-4 h-4 text-wa-green shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs font-medium text-text-primary">Backend Required</p>
-                  <p className="text-[10px] text-text-muted mt-1">The actual WhatsApp connection needs the bot backend running. You can simulate the connection below for UI testing.</p>
+                  <p className="text-xs font-medium text-text-primary">Real WhatsApp Connection</p>
+                  <p className="text-[10px] text-text-muted mt-1">EDWARD MD uses Baileys to connect directly to WhatsApp. Choose QR Code or Pairing Code above to get started.</p>
                 </div>
               </div>
-              <button onClick={handleSimulateConnect} className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2 bg-wa-green/10 border border-wa-green/20 text-wa-green text-xs font-medium rounded-lg hover:bg-wa-green/20 transition-colors">
-                <Wifi className="w-3.5 h-3.5" />Simulate WhatsApp Connected
-              </button>
             </div>
           </div>
         )}
@@ -174,10 +171,13 @@ export default function Pairing() {
               </div>
             )}
 
-            <div className="mt-4 pt-4 border-t border-border">
-              <button onClick={handleSimulateConnect} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-wa-green/10 border border-wa-green/20 text-wa-green text-xs font-medium rounded-lg hover:bg-wa-green/20 transition-colors">
-                <Wifi className="w-3.5 h-3.5" />Simulate Connected (Testing)
-              </button>
+            <div className="mt-4 pt-4 border-t border-border text-center">
+              <p className="text-[10px] text-text-muted">Waiting for WhatsApp to confirm connection...</p>
+              <div className="flex items-center justify-center gap-1.5 mt-2">
+                <div className="w-1.5 h-1.5 bg-wa-green rounded-full animate-pulse" />
+                <div className="w-1.5 h-1.5 bg-wa-green rounded-full animate-pulse" style={{ animationDelay: '0.3s' }} />
+                <div className="w-1.5 h-1.5 bg-wa-green rounded-full animate-pulse" style={{ animationDelay: '0.6s' }} />
+              </div>
             </div>
           </div>
         )}

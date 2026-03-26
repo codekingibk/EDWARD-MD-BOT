@@ -1,0 +1,184 @@
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs';
+import { readFile, writeFile } from 'fs/promises';
+import path from 'path';
+import { logger } from './logger';
+import { createRequire } from 'module';
+import { pathToFileURL } from 'url';
+
+const log = logger.child({ module: 'PluginLoader' });
+
+export interface PluginDef {
+  command: string;
+  aliases?: string[];
+  category?: string;
+  description?: string;
+  usage?: string;
+  ownerOnly?: boolean;
+  adminOnly?: boolean;
+  groupOnly?: boolean;
+  privateOnly?: boolean;
+  isPrefixless?: boolean;
+  handler: (sock: any, message: any, args: string[], context: PluginContext) => Promise<void>;
+}
+
+export interface PluginContext {
+  chatId: string;
+  senderId: string;
+  isGroup: boolean;
+  isOwner: boolean;
+  isAdmin: boolean;
+  config: Record<string, any>;
+  channelInfo?: Record<string, any>;
+  pluginStates: Record<string, boolean>;
+}
+
+const PLUGINS_DIR = path.resolve(process.cwd(), 'plugins');
+const PLUGINS_META_FILE = path.resolve(process.cwd(), 'plugins-meta.json');
+const MEGA_MD_BASE = 'https://raw.githubusercontent.com/GlobalTechInfo/MEGA-MD/main/plugins';
+
+const PLUGIN_FILES = [
+  'alive.js', 'ping.js', 'uptime.js', 'calc.js', 'joke.js', 'fact.js', 'quote.js',
+  'weather.js', 'translate.js', 'wikipedia.js', 'define.js', 'news.js', 'movie.js',
+  'lyrics.js', 'tts.js', 'sticker.js', 'menu.js', 'help.js', 'listcmd.js',
+  'broadcast.js', 'ban.js', 'kick.js', 'promote.js', 'demote.js', 'mute.js',
+  'unmute.js', 'hidetag.js', 'groupinfo.js', 'invitelink.js', 'joingroup.js',
+  'welcome.js', 'goodbye.js', 'anticall.js', 'antidelete.js', 'antilink.js',
+  'antispam.js', 'antibadword.js', 'autoread.js', 'autotyping.js', 'autostatus.js',
+  'cmdreact.js', 'areact.js', 'viewonce.js', 'delete.js', 'echo.js',
+  'flip.js', 'eightball.js', 'truth.js', 'dare.js', 'trivia.js', 'hangman.js',
+  'tictactoe.js', 'math.js', 'base64.js', 'cipher.js', 'url.js', 'urldecode.js',
+  'iplookup.js', 'whois.js', 'npmstalk.js', 'github.js', 'gitinfo.js',
+  'imdb.js', 'pokedex.js', 'genshin.js', 'anime.js', 'animes.js',
+  'instagram.js', 'tiktok.js', 'twitter.js', 'facebook.js', 'youtube.js',
+  'play.js', 'ytsearch.js', 'tts.js', 'tourl.js', 'tiny.js',
+  'qrcode.js', 'meme.js', 'gif.js', 'imagine-diffusion.js',
+  'warn.js', 'warnings.js', 'notes.js', 'vnote.js', 'poll.js', 'mention.js',
+  'fetch.js', 'ping.js', 'pingweb.js', 'update.js', 'cleartmp.js',
+  'mode.js', 'owner.js', 'privacy.js', 'pmblocker.js', 'maintenance.js',
+  'addreply.js', 'autoreply.js', 'delreply.js', 'listreplies.js',
+  'broadcast.js', 'broadcastdm.js', 'pair.js', 'disappear.js',
+  'archivechat.js', 'pinchat.js', 'clearchat.js', 'clearsession.js',
+  'getpp.js', 'stalk.js', 'gstalk.js', 'pstalk.js',
+  'hack.js', 'wasted.js', 'compliment.js', 'insult.js', 'flirt.js',
+  'distance.js', 'units.js', 'element.js', 'dna.js', 'medicine.js',
+  'wordcloud.js', 'wyr.js', 'why.js', 'quote2.js', 'quoted.js',
+];
+
+let loadedPlugins: Map<string, PluginDef> = new Map();
+let pluginStates: Record<string, boolean> = {};
+let pluginsMeta: Record<string, { name: string; category: string; description: string; enabled: boolean }> = {};
+
+function ensureDir() {
+  if (!existsSync(PLUGINS_DIR)) mkdirSync(PLUGINS_DIR, { recursive: true });
+}
+
+async function downloadPlugin(name: string): Promise<boolean> {
+  try {
+    const url = `${MEGA_MD_BASE}/${name}`;
+    const res = await fetch(url);
+    if (!res.ok) return false;
+    const code = await res.text();
+    if (!code || code.startsWith('404')) return false;
+    writeFileSync(path.join(PLUGINS_DIR, name), code, 'utf8');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function downloadAllPlugins(onProgress?: (msg: string) => void): Promise<void> {
+  ensureDir();
+  const existing = new Set(readdirSync(PLUGINS_DIR).filter(f => f.endsWith('.js')));
+  const toDownload = PLUGIN_FILES.filter(f => !existing.has(f));
+
+  if (toDownload.length === 0) {
+    onProgress?.('All plugins already downloaded');
+    return;
+  }
+
+  onProgress?.(`Downloading ${toDownload.length} plugins from MEGA-MD...`);
+
+  let success = 0;
+  const batchSize = 10;
+  for (let i = 0; i < toDownload.length; i += batchSize) {
+    const batch = toDownload.slice(i, i + batchSize);
+    const results = await Promise.all(batch.map(f => downloadPlugin(f)));
+    success += results.filter(Boolean).length;
+    onProgress?.(`Downloaded ${success}/${toDownload.length} plugins...`);
+  }
+
+  onProgress?.(`Plugin download complete: ${success}/${toDownload.length} successful`);
+}
+
+export async function loadPlugins(): Promise<void> {
+  ensureDir();
+  loadedPlugins.clear();
+
+  const files = readdirSync(PLUGINS_DIR).filter(f => f.endsWith('.js'));
+  if (files.length === 0) {
+    log.warn('No plugins found in plugins directory');
+    return;
+  }
+
+  let loaded = 0;
+  for (const file of files) {
+    try {
+      const filePath = path.join(PLUGINS_DIR, file);
+      const url = pathToFileURL(filePath).href + `?t=${Date.now()}`;
+      const mod = await import(url);
+      const plugin: PluginDef = mod.default || mod;
+
+      if (!plugin?.command || typeof plugin?.handler !== 'function') continue;
+
+      loadedPlugins.set(plugin.command, plugin);
+      if (plugin.aliases) {
+        for (const alias of plugin.aliases) {
+          loadedPlugins.set(alias, plugin);
+        }
+      }
+
+      if (!pluginsMeta[plugin.command]) {
+        pluginsMeta[plugin.command] = {
+          name: plugin.command,
+          category: plugin.category || 'general',
+          description: plugin.description || '',
+          enabled: pluginStates[plugin.command] !== false,
+        };
+      }
+
+      loaded++;
+    } catch (err: any) {
+      log.warn({ file, err: err.message }, 'Failed to load plugin');
+    }
+  }
+
+  log.info({ loaded, total: files.length }, 'Plugins loaded');
+}
+
+export function getPlugin(command: string): PluginDef | undefined {
+  return loadedPlugins.get(command);
+}
+
+export function getAllPluginsMeta(): Record<string, any>[] {
+  return Array.from(new Set(
+    Array.from(loadedPlugins.values())
+  )).map(p => ({
+    id: p.command,
+    name: p.command,
+    category: p.category || 'general',
+    description: p.description || '',
+    usage: p.usage || `.${p.command}`,
+    aliases: p.aliases || [],
+    enabled: pluginStates[p.command] !== false,
+    ownerOnly: !!p.ownerOnly,
+    adminOnly: !!p.adminOnly,
+  }));
+}
+
+export function setPluginState(id: string, enabled: boolean) {
+  pluginStates[id] = enabled;
+}
+
+export function getPluginStates() { return pluginStates; }
+
+export function getLoadedPlugins() { return loadedPlugins; }
