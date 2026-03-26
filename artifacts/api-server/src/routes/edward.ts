@@ -86,6 +86,8 @@ router.post('/connect/qr', async (_req, res) => {
   try {
     const wa = getWhatsAppManager(io!);
     wa.updateConfig(botConfig);
+    // Always clear stale session before a fresh QR connection
+    wa.clearSession();
     wa.connect().catch((err: any) => {
       log.error({ err: err.message }, 'Connect error');
       if (io) io.emit('log', { level: 'error', message: `Connection error: ${err.message}`, source: 'Baileys' });
@@ -99,14 +101,31 @@ router.post('/connect/qr', async (_req, res) => {
 router.post('/connect/code', async (req, res) => {
   const { phone } = req.body;
   if (!phone) { res.status(400).json({ error: 'Phone number required' }); return; }
+  const cleanPhone = phone.replace(/[^0-9]/g, '');
+  if (cleanPhone.length < 7) { res.status(400).json({ error: 'Invalid phone number' }); return; }
   try {
     const wa = getWhatsAppManager(io!);
     wa.updateConfig(botConfig);
-    wa.connect(phone).catch((err: any) => {
+    // Always clear stale session before a fresh pairing code connection
+    wa.clearSession();
+    wa.connect(cleanPhone).catch((err: any) => {
       log.error({ err: err.message }, 'Connect error');
       if (io) io.emit('log', { level: 'error', message: `Connection error: ${err.message}`, source: 'Baileys' });
     });
-    res.json({ ok: true, message: 'Pairing code requested. Check the pairing screen.' });
+    res.json({ ok: true, message: 'Pairing code requested. Check the pairing screen in about 3 seconds.' });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/reset', async (_req, res) => {
+  try {
+    const wa = getWhatsAppManager(io!);
+    await wa.disconnect().catch(() => {});
+    wa.clearSession();
+    if (io) io.emit('sessionCleared');
+    if (io) io.emit('log', { level: 'info', message: 'Session reset — ready for new connection', source: 'System' });
+    res.json({ ok: true, message: 'Session cleared' });
   } catch (err: any) {
     res.status(500).json({ ok: false, error: err.message });
   }

@@ -7,7 +7,7 @@ import { logger } from './logger';
 import path from 'path';
 import { existsSync, mkdirSync, rmSync } from 'fs';
 import { handleMessage, handleCall, type HandlerConfig } from './messageHandler';
-import { downloadAllPlugins, loadPlugins } from './plugins';
+import { loadPlugins } from './plugins';
 
 const log = logger.child({ module: 'WhatsApp' });
 
@@ -16,10 +16,12 @@ export class WhatsAppManager {
   private io: SocketIOServer;
   private authDir: string;
   private reconnectAttempts = 0;
-  private maxReconnects = 5;
+  private maxReconnects = 3;
   private reconnectDelay = 5000;
   private isShuttingDown = false;
   private pairingPhone: string | null = null;
+  private connectionMode: 'qr' | 'code' | null = null;
+  private pluginsLoaded = false;
   private config: HandlerConfig = {
     prefix: '.',
     botName: 'EDWARD MD',
@@ -72,18 +74,36 @@ export class WhatsAppManager {
     Object.assign(this.config, update);
   }
 
+  clearSession() {
+    try {
+      rmSync(this.authDir, { recursive: true, force: true });
+      mkdirSync(this.authDir, { recursive: true });
+      this.emitLog('info', 'Session cleared — ready for fresh connection', 'Session');
+    } catch (err: any) {
+      this.emitLog('warn', `Could not clear session: ${err.message}`, 'Session');
+    }
+  }
+
   async connect(pairingPhone?: string) {
     this.isShuttingDown = false;
-    if (pairingPhone) this.pairingPhone = pairingPhone;
+
+    if (pairingPhone) {
+      this.pairingPhone = pairingPhone;
+      this.connectionMode = 'code';
+    } else {
+      this.connectionMode = 'qr';
+    }
 
     this.emitLog('info', 'Initializing Baileys WhatsApp connection...', 'Baileys');
 
-    try {
-      await downloadAllPlugins((msg) => this.emitLog('info', msg, 'PluginLoader'));
-      await loadPlugins();
-      this.emitLog('success', 'Plugins loaded successfully', 'PluginLoader');
-    } catch (err: any) {
-      this.emitLog('warn', `Plugin load warning: ${err.message}`, 'PluginLoader');
+    if (!this.pluginsLoaded) {
+      try {
+        await loadPlugins();
+        this.pluginsLoaded = true;
+        this.emitLog('success', 'Plugins ready', 'PluginLoader');
+      } catch (err: any) {
+        this.emitLog('warn', `Plugin load warning: ${err.message}`, 'PluginLoader');
+      }
     }
 
     const { version, isLatest } = await fetchLatestBaileysVersion();
@@ -125,19 +145,41 @@ export class WhatsAppManager {
       }
 
       if (connection === 'close') {
-        const reason = (lastDisconnect?.error as Boom)?.output?.statusCode;
-        const shouldReconnect = reason !== DisconnectReason.loggedOut;
+        const boomErr = lastDisconnect?.error as Boom;
+        const reason = boomErr?.output?.statusCode;
+        const isLoggedOut = reason === DisconnectReason.loggedOut;
+        const isForbidden = reason === 401;
 
+        this.socket = null;
         this.emit('disconnected', { reason });
-        this.emitLog('warn', `Connection closed (reason: ${reason ?? 'unknown'})`, 'Baileys');
 
-        if (shouldReconnect && !this.isShuttingDown && this.reconnectAttempts < this.maxReconnects) {
+        if (isLoggedOut || isForbidden) {
+          // Stale/invalid session — clear it so next attempt starts fresh
+          this.clearSession();
+          this.emitLog('warn', 'Session rejected by WhatsApp — cleared. Please reconnect.', 'Baileys');
+          this.emit('sessionCleared');
+          this.reconnectAttempts = 0;
+          return;
+        }
+
+        const isQrTimeout = reason === DisconnectReason.timedOut || reason === 408;
+
+        if (isQrTimeout && this.connectionMode === 'code') {
+          // QR timed out but user may still enter pairing code — do NOT auto-reconnect
+          this.emitLog('warn', 'Connection timed out. If you got a pairing code, it may have expired. Please try again.', 'Pairing');
+          this.clearSession();
+          this.emit('sessionCleared');
+          this.reconnectAttempts = 0;
+          return;
+        }
+
+        if (!this.isShuttingDown && this.reconnectAttempts < this.maxReconnects) {
           this.reconnectAttempts++;
           const delay = this.reconnectDelay * this.reconnectAttempts;
           this.emitLog('info', `Reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts}/${this.maxReconnects})`, 'Baileys');
           setTimeout(() => this.connect(), delay);
-        } else if (reason === DisconnectReason.loggedOut) {
-          this.emitLog('warn', 'Session logged out — please reconnect', 'Baileys');
+        } else {
+          this.emitLog('warn', `Connection closed (reason: ${reason ?? 'unknown'}). Please reconnect manually.`, 'Baileys');
         }
       } else if (connection === 'connecting') {
         this.emitLog('info', 'Connecting to WhatsApp...', 'Baileys');
@@ -192,7 +234,6 @@ export class WhatsAppManager {
             mentions: [jid],
           }).catch(() => {});
         }
-        this.emitLog('info', `Welcome message sent in ${id}`, 'Groups');
       }
       if (action === 'remove' && this.config.goodbyeMessage) {
         for (const jid of participants) {
@@ -201,20 +242,25 @@ export class WhatsAppManager {
             mentions: [jid],
           }).catch(() => {});
         }
-        this.emitLog('info', `Goodbye message sent in ${id}`, 'Groups');
       }
     });
 
+    // Request pairing code if phone provided
     if (pairingPhone && !sock.authState.creds.registered) {
       setTimeout(async () => {
         try {
-          const code = await sock.requestPairingCode(pairingPhone.replace(/[^0-9]/g, ''));
-          this.emit('pairingCode', code);
-          this.emitLog('info', `Pairing code for ${pairingPhone}: ${code}`, 'Pairing');
+          const cleanPhone = pairingPhone.replace(/[^0-9]/g, '');
+          this.emitLog('info', `Requesting pairing code for +${cleanPhone}...`, 'Pairing');
+          const code = await sock.requestPairingCode(cleanPhone);
+          // Format code as XXXX-XXXX for readability
+          const formatted = code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code;
+          this.emit('pairingCode', formatted);
+          this.emitLog('success', `Pairing code ready: ${formatted}`, 'Pairing');
         } catch (err: any) {
           this.emitLog('error', `Failed to get pairing code: ${err.message}`, 'Pairing');
+          this.emit('pairingCodeError', err.message);
         }
-      }, 2000);
+      }, 3000);
     }
 
     return sock;
@@ -237,7 +283,7 @@ export class WhatsAppManager {
       this.socket.end(undefined);
       this.socket = null;
       this.emit('disconnected', { reason: 'manual' });
-      this.emitLog('info', 'Bot disconnected by user', 'Baileys');
+      this.emitLog('info', 'Bot disconnected', 'Baileys');
     }
   }
 
@@ -248,9 +294,8 @@ export class WhatsAppManager {
       this.socket.end(undefined);
       this.socket = null;
     }
-    try { rmSync(this.authDir, { recursive: true, force: true }); mkdirSync(this.authDir, { recursive: true }); } catch {}
+    this.clearSession();
     this.emit('disconnected', { reason: 'logout' });
-    this.emitLog('info', 'Session cleared and logged out', 'Baileys');
   }
 
   async restart() {

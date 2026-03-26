@@ -215,8 +215,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       socket.on('connect', () => addLog('info', 'Connected to backend realtime', 'Socket'));
       socket.on('log', (entry: any) => addLog(entry.level, entry.message, entry.source));
       socket.on('logs', (arr: any[]) => arr.forEach(l => addLog(l.level, l.message, l.source)));
-      socket.on('qr', (q: string) => { setQrCode(q); addLog('info', 'QR code received from WhatsApp', 'WhatsApp'); });
-      socket.on('pairingCode', (code: string) => { setPairingCode(code); addLog('info', `Pairing code received: ${code}`, 'WhatsApp'); });
+      socket.on('qr', (q: string) => { setQrCode(q); addLog('info', 'QR code received — scan now', 'WhatsApp'); });
+      socket.on('pairingCode', (code: string) => { setPairingCode(code); addLog('success', `Pairing code ready: ${code}`, 'WhatsApp'); });
+      socket.on('pairingCodeError', (msg: string) => { addLog('error', `Pairing code error: ${msg}`, 'WhatsApp'); });
+      socket.on('sessionCleared', () => {
+        addLog('warn', 'Session cleared — please reconnect', 'System');
+        window.dispatchEvent(new CustomEvent('wa-session-cleared'));
+      });
       socket.on('connected', () => { setIsConnected(true); setPage('dashboard'); addLog('success', 'WhatsApp connected!', 'WhatsApp'); addNotification('Connected!', 'Bot is now connected to WhatsApp', 'success'); });
       socket.on('disconnected', () => { setIsConnected(false); addLog('warn', 'WhatsApp disconnected', 'WhatsApp'); });
       socket.on('stats', (s: Partial<BotStats>) => setStats(prev => ({ ...prev, ...s })));
