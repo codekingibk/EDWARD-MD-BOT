@@ -3,6 +3,7 @@ import type { Server as SocketIOServer } from 'socket.io';
 import { logger } from "../lib/logger";
 import { getWhatsAppManager } from "../lib/whatsapp";
 import { getAllPluginsMeta, setPluginState, downloadAllPlugins, loadPlugins, getPluginUsageStats } from "../lib/plugins";
+import { notifySettingsUpdated, notifyPluginToggled, notifyPluginsReloaded } from "../lib/notifier";
 import os from 'os';
 
 const log = logger.child({ module: "edward" });
@@ -34,6 +35,10 @@ router.post('/plugins/toggle', (req, res) => {
   if (!id) { res.status(400).json({ error: 'id required' }); return; }
   setPluginState(id, !!enabled);
   log.info({ id, enabled }, 'Plugin toggled');
+  const plugin = getAllPluginsMeta().find((p: any) => p.id === id);
+  if (plugin) {
+    notifyPluginToggled(plugin.name, plugin.command, !!enabled).catch(() => {});
+  }
   res.json({ ok: true, id, enabled });
 });
 
@@ -53,8 +58,10 @@ router.post('/plugins/reload', async (_req, res) => {
       if (io) io.emit('log', { level: 'info', message: msg, source: 'PluginLoader' });
     });
     await loadPlugins();
+    const allPlugins = getAllPluginsMeta();
     if (io) io.emit('log', { level: 'success', message: 'Plugins reloaded', source: 'PluginLoader' });
-    res.json({ ok: true, plugins: getAllPluginsMeta().length });
+    notifyPluginsReloaded(allPlugins.length, allPlugins.filter((p: any) => p.enabled !== false).length).catch(() => {});
+    res.json({ ok: true, plugins: allPlugins.length });
   } catch (err: any) {
     res.status(500).json({ ok: false, error: err.message });
   }
@@ -71,6 +78,7 @@ router.post('/config', (req, res) => {
     wa.updateConfig(botConfig);
   } catch {}
   log.info({ update: req.body }, 'Config updated');
+  notifySettingsUpdated(req.body).catch(() => {});
   res.json({ ok: true });
 });
 

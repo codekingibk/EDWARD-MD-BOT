@@ -5,6 +5,7 @@ import { logger } from "./lib/logger";
 import { getWhatsAppManager } from "./lib/whatsapp";
 import { setIo } from "./routes/edward";
 import { downloadAllPlugins, loadPlugins } from "./lib/plugins";
+import { startKeepAlive } from "./lib/keepalive";
 
 const rawPort = process.env["PORT"];
 
@@ -51,6 +52,8 @@ io.on("connection", (socket) => {
     logger.info({ id: socket.id }, "Socket.IO client disconnected");
   });
 });
+
+startKeepAlive();
 
 httpServer.listen(port, async (err?: Error) => {
   if (err) {

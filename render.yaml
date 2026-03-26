@@ -1,0 +1,49 @@
+services:
+  # ── API / Bot Server ──────────────────────────────────────────────────────
+  - type: web
+    name: edward-md-api
+    runtime: node
+    plan: free
+    rootDir: .
+    buildCommand: npm install -g pnpm && pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server run build
+    startCommand: pnpm --filter @workspace/api-server run start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      # Set this to your Render service URL after first deploy so keepalive works
+      # e.g. https://edward-md-api.onrender.com
+      - key: SELF_URL
+        value: ""
+    scaling:
+      minInstances: 1
+      maxInstances: 1
+
+  # ── React Frontend (Static Site) ─────────────────────────────────────────
+  - type: web
+    name: edward-md-dashboard
+    runtime: static
+    plan: free
+    rootDir: .
+    buildCommand: npm install -g pnpm && pnpm install --frozen-lockfile && pnpm --filter @workspace/edward-md run build
+    staticPublishPath: ./artifacts/edward-md/dist
+    autoDeploy: true
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+    routes:
+      # Proxy /api/* and /socket.io/* to the API service
+      - type: rewrite
+        source: /api/*
+        destination: https://edward-md-api.onrender.com/api/:splat
+      - type: rewrite
+        source: /socket.io/*
+        destination: https://edward-md-api.onrender.com/socket.io/:splat
+      # SPA fallback
+      - type: rewrite
+        source: /*
+        destination: /index.html

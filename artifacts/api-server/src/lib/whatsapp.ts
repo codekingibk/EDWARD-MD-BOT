@@ -8,7 +8,8 @@ import path from 'path';
 import os from 'os';
 import { existsSync, mkdirSync, rmSync } from 'fs';
 import { handleMessage, handleCall, type HandlerConfig } from './messageHandler';
-import { loadPlugins } from './plugins';
+import { loadPlugins, getAllPluginsMeta } from './plugins';
+import { setNotifierSocket, setNotifierConfig, notifyConnected } from './notifier';
 
 const log = logger.child({ module: 'WhatsApp' });
 
@@ -171,6 +172,9 @@ export class WhatsAppManager {
 
   updateConfig(update: Partial<HandlerConfig>) {
     Object.assign(this.config, update);
+    if (update.ownerNumber !== undefined || update.botName !== undefined) {
+      setNotifierConfig(this.config.ownerNumber, this.config.botName);
+    }
   }
 
   clearSession() {
@@ -311,6 +315,11 @@ export class WhatsAppManager {
         }
         this.startWatchdog();
         this.emitStats();
+        // Notify owner on WhatsApp
+        setNotifierSocket(sock);
+        setNotifierConfig(this.config.ownerNumber, this.config.botName);
+        const pluginCount = getAllPluginsMeta().length;
+        setTimeout(() => notifyConnected(sock.user ?? {}, pluginCount).catch(() => {}), 3000);
       }
     });
 
@@ -439,6 +448,7 @@ export class WhatsAppManager {
     this.isShuttingDown = true;
     this.isConnected = false;
     this.stopWatchdog();
+    setNotifierSocket(null);
     if (this.socket) {
       await this.socket.logout().catch(() => {});
       this.socket.end(undefined);
