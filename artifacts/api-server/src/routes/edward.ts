@@ -3,6 +3,7 @@ import type { Server as SocketIOServer } from 'socket.io';
 import { logger } from "../lib/logger";
 import { getWhatsAppManager } from "../lib/whatsapp";
 import { getAllPluginsMeta, setPluginState, downloadAllPlugins, loadPlugins, getPluginUsageStats } from "../lib/plugins";
+import os from 'os';
 
 const log = logger.child({ module: "edward" });
 
@@ -166,6 +167,40 @@ router.post('/restart', async (_req, res) => {
 router.get('/plugin-stats', (_req, res) => {
   const stats = getPluginUsageStats();
   res.json(stats);
+});
+
+router.get('/metrics', (_req, res) => {
+  try {
+    const wa = getWhatsAppManager();
+    const s = wa.getStats();
+    const plugins = getAllPluginsMeta();
+    res.json({
+      ...s,
+      totalPlugins: plugins.length,
+      enabledPlugins: plugins.filter((p: any) => p.enabled !== false).length,
+    });
+  } catch {
+    const memUsed = process.memoryUsage().rss;
+    const memTotal = os.totalmem();
+    res.json({
+      connected: false,
+      messagesReceived: 0,
+      messagesSent: 0,
+      commandsExecuted: 0,
+      activeGroups: 0,
+      activeUsers: 0,
+      errorsToday: 0,
+      uptime: 0,
+      startTime: Date.now(),
+      memoryUsage: Math.round((memUsed / memTotal) * 1000) / 10,
+      cpuUsage: 0,
+      memoryUsedMB: Math.round(memUsed / 1024 / 1024),
+      memoryTotalMB: Math.round(memTotal / 1024 / 1024),
+      history: { messages: [], commands: [], users: [] },
+      totalPlugins: 0,
+      enabledPlugins: 0,
+    });
+  }
 });
 
 router.post('/execute', async (req, res) => {

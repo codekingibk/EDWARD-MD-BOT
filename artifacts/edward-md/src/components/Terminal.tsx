@@ -61,7 +61,7 @@ export default function TerminalPage() {
       case 'status':
         addLine('output', [`╭─── Bot Status ───────────────────╮`, `│ Name:     ${botConfig.botName.padEnd(23)}│`, `│ Status:   🟢 Online              │`, `│ Prefix:   ${botConfig.prefix.padEnd(23)}│`, `│ Mode:     ${(botConfig.publicMode?'Public':'Private').padEnd(23)}│`, `│ Uptime:   ${formatUptime(stats.uptime).padEnd(23)}│`, `│ Groups:   ${String(stats.activeGroups).padEnd(23)}│`, `│ Users:    ${String(stats.activeUsers).padEnd(23)}│`, `╰──────────────────────────────────╯`].join('\n')); break;
       case 'stats':
-        addLine('output', [`📊 Bot Statistics:`, `   Messages Received: ${stats.messagesReceived.toLocaleString()}`, `   Messages Sent:     ${stats.messagesSent.toLocaleString()}`, `   Commands Executed:  ${stats.commandsExecuted.toLocaleString()}`, `   Avg Response Time:  ${Math.round(stats.avgResponseTime)}ms`, `   Memory Usage:       ${Math.round(stats.memoryUsage)}%`, `   CPU Usage:          ${Math.round(stats.cpuUsage)}%`, `   Bandwidth Used:     ${stats.bandwidthUsed.toFixed(2)} GB`].join('\n')); break;
+        addLine('output', [`📊 Bot Statistics:`, `   Messages Received: ${stats.messagesReceived.toLocaleString()}`, `   Messages Sent:     ${stats.messagesSent.toLocaleString()}`, `   Commands Executed:  ${stats.commandsExecuted.toLocaleString()}`, `   Memory Usage:       ${stats.memoryUsedMB ? `${stats.memoryUsedMB}MB / ${stats.memoryTotalMB}MB` : `${Math.round(stats.memoryUsage)}%`}`, `   CPU Usage:          ${Math.round(stats.cpuUsage)}%`].join('\n')); break;
       case 'plugins': {
         const enabled = plugins.filter(p => p.enabled).length;
         addLine('output', [`🔌 Plugins: ${enabled}/${plugins.length} enabled`, ``, ...plugins.slice(0, 20).map(p => `   ${p.enabled?'🟢':'🔴'} ${p.id.padEnd(12)} ${p.name.padEnd(20)} ${p.command}`), plugins.length > 20 ? `   ... and ${plugins.length - 20} more` : ''].join('\n')); break;
@@ -83,7 +83,11 @@ export default function TerminalPage() {
       case 'setprefix': if (!args) { addLine('error', 'Usage: setprefix <prefix>'); break; } updateConfig('prefix', args); addLine('output', `✅ Prefix changed to "${args}"`); break;
       case 'uptime': addLine('output', `⏱ Uptime: ${formatUptime(stats.uptime)}`); break;
       case 'logs': addLine('output', '📋 Check the Logs page for full log history.'); break;
-      case 'ping': addLine('output', `🏓 Pong! Latency: ${Math.floor(Math.random() * 100 + 20)}ms`); break;
+      case 'ping': {
+        const t0 = Date.now();
+        fetch('/api/metrics').then(() => addLine('output', `🏓 Pong! API latency: ${Date.now() - t0}ms`)).catch(() => addLine('error', 'Ping failed — API unreachable'));
+        break;
+      }
       case 'restart': addLine('system', '🔄 Restarting bot...'); addLog('info', 'Bot restart initiated from terminal', 'Terminal'); setTimeout(() => addLine('system', '🟢 Bot restarted successfully!'), 2000); break;
       case 'broadcast': if (!args) { addLine('error', 'Usage: broadcast <message>'); break; } addLine('output', `📢 Broadcasting to ${stats.activeGroups} groups: "${args}"`); addLog('info', `Broadcast sent: ${args}`, 'Terminal'); break;
       case 'version': addLine('output', [`EDWARD MD v3.0.0`, `Built with Baileys @whiskeysockets/baileys`, `Node.js Runtime`, `${plugins.length} plugins loaded`].join('\n')); break;

@@ -5,23 +5,51 @@ import type { Server as SocketIOServer } from 'socket.io';
 import QRCode from 'qrcode';
 import { logger } from './logger';
 import path from 'path';
+import os from 'os';
 import { existsSync, mkdirSync, rmSync } from 'fs';
 import { handleMessage, handleCall, type HandlerConfig } from './messageHandler';
 import { loadPlugins } from './plugins';
 
 const log = logger.child({ module: 'WhatsApp' });
 
+const HISTORY_SIZE = 12;
+
+let prevCpuUsage = process.cpuUsage();
+let prevCpuTime = Date.now();
+
+function getCpuPercent(): number {
+  const now = Date.now();
+  const elapsed = now - prevCpuTime;
+  if (elapsed < 100) return 0;
+  const cpu = process.cpuUsage(prevCpuUsage);
+  prevCpuUsage = process.cpuUsage();
+  prevCpuTime = now;
+  const used = (cpu.user + cpu.system) / 1000;
+  return Math.min(100, Math.round((used / elapsed) * 100 * 10) / 10);
+}
+
+function getMemPercent(): number {
+  const used = process.memoryUsage().rss;
+  const total = os.totalmem();
+  return Math.round((used / total) * 1000) / 10;
+}
+
 export class WhatsAppManager {
   private socket: WASocket | null = null;
   private io: SocketIOServer;
   private authDir: string;
   private reconnectAttempts = 0;
-  private maxReconnects = 3;
+  private maxReconnects = 999;
   private reconnectDelay = 5000;
+  private maxReconnectDelay = 60000;
   private isShuttingDown = false;
   private pairingPhone: string | null = null;
   private connectionMode: 'qr' | 'code' | null = null;
   private pluginsLoaded = false;
+  private watchdogInterval: ReturnType<typeof setInterval> | null = null;
+  private statsInterval: ReturnType<typeof setInterval> | null = null;
+  private isConnected = false;
+
   private config: HandlerConfig = {
     prefix: '.',
     botName: 'EDWARD MD',
@@ -44,20 +72,91 @@ export class WhatsAppManager {
     language: 'en',
     version: '2.0.0',
   };
+
   private stats = {
     messagesReceived: 0,
     messagesSent: 0,
     commandsExecuted: 0,
     activeGroups: 0,
     activeUsers: 0,
+    errorsToday: 0,
     startTime: Date.now(),
   };
+
+  private history = {
+    messages: new Array<number>(HISTORY_SIZE).fill(0),
+    commands: new Array<number>(HISTORY_SIZE).fill(0),
+    users: new Array<number>(HISTORY_SIZE).fill(0),
+    timestamps: new Array<number>(HISTORY_SIZE).fill(0),
+  };
+
+  private historyInterval: ReturnType<typeof setInterval> | null = null;
+  private lastMsgCount = 0;
+  private lastCmdCount = 0;
+  private lastUserCount = 0;
 
   constructor(io: SocketIOServer) {
     this.io = io;
     this.authDir = path.resolve(process.cwd(), 'wa-auth');
     if (!existsSync(this.authDir)) {
       mkdirSync(this.authDir, { recursive: true });
+    }
+    this.startStatsInterval();
+    this.startHistoryTracking();
+  }
+
+  private startStatsInterval() {
+    if (this.statsInterval) clearInterval(this.statsInterval);
+    this.statsInterval = setInterval(() => {
+      if (this.isConnected) this.emitStats();
+    }, 5000);
+  }
+
+  private startHistoryTracking() {
+    if (this.historyInterval) clearInterval(this.historyInterval);
+    this.historyInterval = setInterval(() => {
+      const msgDelta = this.stats.messagesReceived - this.lastMsgCount;
+      const cmdDelta = this.stats.commandsExecuted - this.lastCmdCount;
+      this.lastMsgCount = this.stats.messagesReceived;
+      this.lastCmdCount = this.stats.commandsExecuted;
+      this.lastUserCount = this.stats.activeUsers;
+
+      this.history.messages.push(msgDelta);
+      this.history.commands.push(cmdDelta);
+      this.history.users.push(this.stats.activeUsers);
+      this.history.timestamps.push(Date.now());
+
+      if (this.history.messages.length > HISTORY_SIZE) {
+        this.history.messages.shift();
+        this.history.commands.shift();
+        this.history.users.shift();
+        this.history.timestamps.shift();
+      }
+    }, 5 * 60 * 1000); // Every 5 minutes
+  }
+
+  private startWatchdog() {
+    if (this.watchdogInterval) clearInterval(this.watchdogInterval);
+    this.watchdogInterval = setInterval(async () => {
+      if (this.isShuttingDown) return;
+      const sockUser = this.socket?.user;
+      if (!sockUser && !this.isShuttingDown) {
+        this.emitLog('warn', 'Watchdog: connection lost, attempting reconnect...', 'Watchdog');
+        this.isConnected = false;
+        this.emit('disconnected', { reason: 'watchdog' });
+        try {
+          await this.connect(this.pairingPhone || undefined);
+        } catch (err: any) {
+          this.emitLog('error', `Watchdog reconnect failed: ${err.message}`, 'Watchdog');
+        }
+      }
+    }, 30000);
+  }
+
+  private stopWatchdog() {
+    if (this.watchdogInterval) {
+      clearInterval(this.watchdogInterval);
+      this.watchdogInterval = null;
     }
   }
 
@@ -93,14 +192,11 @@ export class WhatsAppManager {
     } else if (!this.pairingPhone) {
       this.connectionMode = 'qr';
     }
-    // else: reconnecting after 515/logout — keep existing connectionMode and pairingPhone
 
-    // Always close existing socket cleanly before creating a new one
-    // to prevent WhatsApp seeing duplicate connections (causes device_removed)
     if (this.socket) {
       try { this.socket.end(undefined); } catch {}
       this.socket = null;
-      await new Promise(r => setTimeout(r, 500)); // brief pause to let WA close TCP
+      await new Promise(r => setTimeout(r, 500));
     }
 
     this.emitLog('info', 'Initializing Baileys WhatsApp connection...', 'Baileys');
@@ -128,13 +224,12 @@ export class WhatsAppManager {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, logger.child({ module: 'KeyStore' }) as any),
       },
-      // Must use official Browsers preset — custom strings cause WhatsApp to reject pairing codes
       browser: Browsers.ubuntu('Chrome'),
       generateHighQualityLinkPreview: false,
       getMessage: async () => undefined,
       syncFullHistory: false,
-      // Give 5 minutes per QR cycle so socket stays alive while user enters pairing code
       qrTimeout: 300_000,
+      keepAliveIntervalMs: 15000,
     });
 
     this.socket = sock;
@@ -165,33 +260,30 @@ export class WhatsAppManager {
         const isForbidden = reason === 401;
 
         this.socket = null;
+        this.isConnected = false;
 
-        // 515 = "Stream Errored (restart required)" — WhatsApp sends this right after
-        // successful pairing to force a clean reconnect. Reconnect immediately, DO NOT clear session.
         const isRestartRequired = reason === 515 || errMsg.includes('restart required');
         if (isRestartRequired && !this.isShuttingDown) {
           this.emitLog('info', 'WhatsApp requested reconnect after pairing — reconnecting...', 'Baileys');
-          setTimeout(() => this.connect(), 1000); // reconnect quickly with saved credentials
+          setTimeout(() => this.connect(), 1000);
           return;
         }
 
         this.emit('disconnected', { reason });
 
         if (isLoggedOut || isDeviceRemoved || (isForbidden && !isRestartRequired)) {
-          // Session was rejected or device removed — clear so user can start fresh
           this.clearSession();
           this.pairingPhone = null;
           this.connectionMode = null;
           this.emitLog('warn', 'Session rejected by WhatsApp — cleared. Please reconnect.', 'Baileys');
           this.emit('sessionCleared');
           this.reconnectAttempts = 0;
+          this.stopWatchdog();
           return;
         }
 
         const isQrTimeout = reason === DisconnectReason.timedOut || reason === 408;
-
         if (isQrTimeout && this.connectionMode === 'code') {
-          // QR timed out while waiting for pairing code entry — clear and inform user
           this.emitLog('warn', 'Connection timed out. If you got a pairing code, it may have expired. Please try again.', 'Pairing');
           this.clearSession();
           this.emit('sessionCleared');
@@ -199,23 +291,25 @@ export class WhatsAppManager {
           return;
         }
 
-        if (!this.isShuttingDown && this.reconnectAttempts < this.maxReconnects) {
+        if (!this.isShuttingDown) {
           this.reconnectAttempts++;
-          const delay = this.reconnectDelay * this.reconnectAttempts;
-          this.emitLog('info', `Reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts}/${this.maxReconnects})`, 'Baileys');
-          setTimeout(() => this.connect(), delay);
-        } else {
-          this.emitLog('warn', `Connection closed (reason: ${reason ?? 'unknown'}). Please reconnect manually.`, 'Baileys');
+          const delay = Math.min(this.reconnectDelay * Math.min(this.reconnectAttempts, 10), this.maxReconnectDelay);
+          this.emitLog('info', `Reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts})`, 'Baileys');
+          setTimeout(() => {
+            if (!this.isShuttingDown) this.connect();
+          }, delay);
         }
       } else if (connection === 'connecting') {
         this.emitLog('info', 'Connecting to WhatsApp...', 'Baileys');
       } else if (connection === 'open') {
         this.reconnectAttempts = 0;
+        this.isConnected = true;
         this.emit('connected', { jid: sock.user?.id, name: sock.user?.name });
         this.emitLog('success', `Connected as ${sock.user?.name ?? sock.user?.id}`, 'Baileys');
         if (this.config.alwaysOnline) {
           await sock.sendPresenceUpdate('available').catch(() => {});
         }
+        this.startWatchdog();
         this.emitStats();
       }
     });
@@ -271,14 +365,12 @@ export class WhatsAppManager {
       }
     });
 
-    // Request pairing code if phone provided
     if (pairingPhone && !sock.authState.creds.registered) {
       setTimeout(async () => {
         try {
           const cleanPhone = pairingPhone.replace(/[^0-9]/g, '');
           this.emitLog('info', `Requesting pairing code for +${cleanPhone}...`, 'Pairing');
           const code = await sock.requestPairingCode(cleanPhone);
-          // Format code as XXXX-XXXX for readability
           const formatted = code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code;
           this.emit('pairingCode', formatted);
           this.emitLog('success', `Pairing code ready: ${formatted} — enter it in WhatsApp now`, 'Pairing');
@@ -286,24 +378,67 @@ export class WhatsAppManager {
           this.emitLog('error', `Failed to get pairing code: ${err.message}`, 'Pairing');
           this.emit('pairingCodeError', err.message);
         }
-      }, 5000); // 5s to ensure connection is fully established before requesting code
+      }, 5000);
     }
 
     return sock;
   }
 
   private emitStats() {
+    const uptime = Date.now() - this.stats.startTime;
+    const memUsed = process.memoryUsage().rss;
+    const memTotal = os.totalmem();
+    const memPercent = Math.round((memUsed / memTotal) * 1000) / 10;
+    const cpuPercent = getCpuPercent();
+
     this.emit('stats', {
       messagesReceived: this.stats.messagesReceived,
       messagesSent: this.stats.messagesSent,
       commandsExecuted: this.stats.commandsExecuted,
       activeGroups: this.stats.activeGroups,
       activeUsers: this.stats.activeUsers,
+      errorsToday: this.stats.errorsToday,
+      uptime,
+      startTime: this.stats.startTime,
+      memoryUsage: memPercent,
+      cpuUsage: cpuPercent,
+      memoryUsedMB: Math.round(memUsed / 1024 / 1024),
+      memoryTotalMB: Math.round(memTotal / 1024 / 1024),
+      history: {
+        messages: [...this.history.messages],
+        commands: [...this.history.commands],
+        users: [...this.history.users],
+      },
     });
+  }
+
+  getStats() {
+    const uptime = Date.now() - this.stats.startTime;
+    const memUsed = process.memoryUsage().rss;
+    const memTotal = os.totalmem();
+    const memPercent = Math.round((memUsed / memTotal) * 1000) / 10;
+    const cpuPercent = getCpuPercent();
+
+    return {
+      ...this.stats,
+      uptime,
+      connected: this.isConnected,
+      memoryUsage: memPercent,
+      cpuUsage: cpuPercent,
+      memoryUsedMB: Math.round(memUsed / 1024 / 1024),
+      memoryTotalMB: Math.round(memTotal / 1024 / 1024),
+      history: {
+        messages: [...this.history.messages],
+        commands: [...this.history.commands],
+        users: [...this.history.users],
+      },
+    };
   }
 
   async disconnect() {
     this.isShuttingDown = true;
+    this.isConnected = false;
+    this.stopWatchdog();
     if (this.socket) {
       await this.socket.logout().catch(() => {});
       this.socket.end(undefined);
@@ -315,6 +450,8 @@ export class WhatsAppManager {
 
   async logout() {
     this.isShuttingDown = true;
+    this.isConnected = false;
+    this.stopWatchdog();
     if (this.socket) {
       await this.socket.logout().catch(() => {});
       this.socket.end(undefined);
@@ -325,6 +462,7 @@ export class WhatsAppManager {
   }
 
   async restart() {
+    this.stopWatchdog();
     await this.disconnect();
     this.isShuttingDown = false;
     await this.connect(this.pairingPhone || undefined);
@@ -332,7 +470,7 @@ export class WhatsAppManager {
 
   getStatus() {
     return {
-      connected: this.socket?.user != null,
+      connected: this.isConnected && this.socket?.user != null,
       user: this.socket?.user,
       reconnectAttempts: this.reconnectAttempts,
     };

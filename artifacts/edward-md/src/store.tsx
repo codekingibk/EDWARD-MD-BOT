@@ -60,7 +60,9 @@ export interface BotStats {
   messagesReceived: number; messagesSent: number; commandsExecuted: number;
   activeGroups: number; activeUsers: number; uptime: number; startTime: number;
   avgResponseTime: number; memoryUsage: number; cpuUsage: number;
-  totalPlugins: number; enabledPlugins: number; errorsToday: number; bandwidthUsed: number;
+  totalPlugins: number; enabledPlugins: number; errorsToday: number;
+  memoryUsedMB: number; memoryTotalMB: number;
+  history: { messages: number[]; commands: number[]; users: number[] };
 }
 
 export interface NotificationItem {
@@ -127,8 +129,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     messagesReceived: 0, messagesSent: 0, commandsExecuted: 0,
     activeGroups: 0, activeUsers: 0, uptime: 0, startTime: Date.now(),
     avgResponseTime: 0, memoryUsage: 0, cpuUsage: 0,
-    totalPlugins: defaultPlugins.length, enabledPlugins: defaultPlugins.filter(p => p.enabled).length,
-    errorsToday: 0, bandwidthUsed: 0,
+    totalPlugins: 0, enabledPlugins: 0, errorsToday: 0,
+    memoryUsedMB: 0, memoryTotalMB: 0,
+    history: { messages: [], commands: [], users: [] },
   });
 
   const addLog = useCallback((level: LogEntry['level'], message: string, source?: string) => {
@@ -157,25 +160,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Uptime ticker
+  // Poll real metrics from API every 10 seconds
   useEffect(() => {
-    const iv = setInterval(() => {
-      setStats(prev => ({
-        ...prev, uptime: Date.now() - prev.startTime,
-        enabledPlugins: plugins.filter(p => p.enabled).length,
-        messagesReceived: isConnected ? prev.messagesReceived + Math.floor(Math.random() * 3) : prev.messagesReceived,
-        messagesSent: isConnected ? prev.messagesSent + Math.floor(Math.random() * 2) : prev.messagesSent,
-        commandsExecuted: isConnected ? prev.commandsExecuted + (Math.random() > 0.7 ? 1 : 0) : prev.commandsExecuted,
-        activeGroups: isConnected ? Math.max(1, prev.activeGroups + (Math.random() > 0.9 ? (Math.random() > 0.5 ? 1 : -1) : 0)) : 0,
-        activeUsers: isConnected ? Math.max(5, prev.activeUsers + (Math.random() > 0.8 ? (Math.random() > 0.5 ? 1 : -1) : 0)) : 0,
-        cpuUsage: isConnected ? Math.min(95, Math.max(10, prev.cpuUsage + (Math.random() * 6 - 3))) : 5,
-        memoryUsage: isConnected ? Math.min(90, Math.max(20, prev.memoryUsage + (Math.random() * 4 - 2))) : 15,
-        avgResponseTime: isConnected ? Math.max(50, Math.min(500, prev.avgResponseTime + (Math.random() * 20 - 10))) : 0,
-        bandwidthUsed: isConnected ? +(prev.bandwidthUsed + 0.001).toFixed(3) : prev.bandwidthUsed,
-      }));
-    }, 2000);
+    function fetchMetrics() {
+      fetch('/api/metrics').then(r => r.json()).then((m: any) => {
+        if (!m) return;
+        setStats(prev => ({
+          ...prev,
+          messagesReceived: m.messagesReceived ?? prev.messagesReceived,
+          messagesSent: m.messagesSent ?? prev.messagesSent,
+          commandsExecuted: m.commandsExecuted ?? prev.commandsExecuted,
+          activeGroups: m.activeGroups ?? prev.activeGroups,
+          activeUsers: m.activeUsers ?? prev.activeUsers,
+          uptime: m.uptime ?? prev.uptime,
+          startTime: m.startTime ?? prev.startTime,
+          memoryUsage: m.memoryUsage ?? prev.memoryUsage,
+          cpuUsage: m.cpuUsage ?? prev.cpuUsage,
+          totalPlugins: m.totalPlugins ?? prev.totalPlugins,
+          enabledPlugins: m.enabledPlugins ?? prev.enabledPlugins,
+          errorsToday: m.errorsToday ?? prev.errorsToday,
+          memoryUsedMB: m.memoryUsedMB ?? prev.memoryUsedMB,
+          memoryTotalMB: m.memoryTotalMB ?? prev.memoryTotalMB,
+          history: m.history ?? prev.history,
+          avgResponseTime: prev.avgResponseTime,
+        }));
+      }).catch(() => {});
+    }
+    fetchMetrics();
+    const iv = setInterval(fetchMetrics, 10000);
     return () => clearInterval(iv);
-  }, [plugins, isConnected]);
+  }, []);
 
   useEffect(() => { localStorage.setItem('edward-md-config', JSON.stringify(botConfig)); }, [botConfig]);
   useEffect(() => { saveUsers(allUsers); }, [allUsers]);
