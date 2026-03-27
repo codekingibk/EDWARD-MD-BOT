@@ -7,6 +7,14 @@ import { setIo } from "./routes/edward";
 import { downloadAllPlugins, loadPlugins } from "./lib/plugins";
 import { startKeepAlive } from "./lib/keepalive";
 
+// ── Crash guards — log and continue instead of dying ──────────────────────────
+process.on('uncaughtException', (err) => {
+  logger.error({ err: err.message, stack: err.stack }, 'Uncaught exception — keeping process alive');
+});
+process.on('unhandledRejection', (reason: any) => {
+  logger.error({ reason: reason?.message ?? String(reason) }, 'Unhandled promise rejection — keeping process alive');
+});
+
 const rawPort = process.env["PORT"];
 
 if (!rawPort) {

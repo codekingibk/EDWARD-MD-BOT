@@ -2,41 +2,46 @@ import { logger } from './logger';
 
 const log = logger.child({ module: 'KeepAlive' });
 
-// Ping every 4 minutes ±30s jitter so Replit never considers the process idle.
-// (Replit suspends free-tier apps after ~5 minutes without incoming traffic.)
-const BASE_INTERVAL_MS = 4 * 60 * 1000;
-const JITTER_MS = 30_000;
+const EXTERNAL_INTERVAL_MS = 2 * 60 * 1000;  // external ping every 2 minutes
+const LOCAL_INTERVAL_MS    = 60 * 1000;       // localhost ping every 1 minute (REFERENCED — keeps Node alive)
 
 function resolvePublicUrl(): string {
-  // 1. Explicit override
   if (process.env['SELF_URL']) return process.env['SELF_URL'].replace(/\/$/, '');
-
-  // 2. Render deployment
   if (process.env['RENDER_EXTERNAL_URL']) return process.env['RENDER_EXTERNAL_URL'].replace(/\/$/, '');
 
-  // 3. Replit dev/deployed domain — the API server artifact is mounted at /api on the proxy
+  // Replit dev/deployed domain — api-server artifact is mounted at /api
   const replitDomain = process.env['REPLIT_DEV_DOMAIN'] || process.env['REPLIT_DOMAINS'];
   if (replitDomain) {
     return `https://${replitDomain.split(',')[0].trim()}/api`;
   }
 
-  // 4. Fallback to localhost (no external keep-alive, but keeps event loop alive)
-  return `http://localhost:${process.env['PORT'] ?? 8080}`;
+  return `http://localhost:${process.env['PORT'] ?? 8080}/api`;
 }
 
 export function startKeepAlive() {
   const baseUrl = resolvePublicUrl();
-  const pingUrl = `${baseUrl}/healthz`;
-  const startedAt = Date.now();
+  const externalUrl = `${baseUrl}/healthz`;
+  const localUrl   = `http://localhost:${process.env['PORT'] ?? 8080}/api/healthz`;
+  const startedAt  = Date.now();
 
-  log.info({ url: pingUrl, intervalMin: BASE_INTERVAL_MS / 60_000 }, 'KeepAlive started');
+  log.info({ url: externalUrl, intervalMin: EXTERNAL_INTERVAL_MS / 60_000 }, 'KeepAlive started');
 
+  // ── 1. Referenced localhost interval — this is what keeps Node.js alive ──────
+  // setInterval without unref() is a "referenced" handle; Node WILL NOT exit
+  // while this is pending, even if WhatsApp disconnects or all sockets close.
+  setInterval(async () => {
+    try {
+      await fetch(localUrl, { signal: AbortSignal.timeout(5_000) });
+    } catch {}
+  }, LOCAL_INTERVAL_MS);
+
+  // ── 2. External URL ping — tells Replit/deployment proxies there is traffic ──
   let consecutiveFailures = 0;
 
-  async function ping() {
+  async function pingExternal() {
     try {
       const start = Date.now();
-      const res = await fetch(pingUrl, {
+      const res = await fetch(externalUrl, {
         signal: AbortSignal.timeout(20_000),
         headers: { 'User-Agent': 'EDWARD-MD-KeepAlive/1.0' },
       });
@@ -53,30 +58,19 @@ export function startKeepAlive() {
     } catch (err: any) {
       consecutiveFailures++;
       log.warn({ err: err.message, consecutiveFailures }, 'KeepAlive ping failed');
-
-      // After 3 consecutive failures try localhost as fallback
-      if (consecutiveFailures >= 3) {
-        try {
-          await fetch(`http://localhost:${process.env['PORT'] ?? 8080}/healthz`, {
-            signal: AbortSignal.timeout(5_000),
-          });
-          log.info('KeepAlive localhost fallback OK');
-        } catch {}
-      }
     }
 
-    // Schedule next ping with jitter
-    scheduleNext();
+    scheduleNextExternal();
   }
 
-  function scheduleNext() {
-    const jitter = Math.floor(Math.random() * JITTER_MS * 2) - JITTER_MS;
-    const delay = Math.max(BASE_INTERVAL_MS + jitter, 60_000);
-    const t = setTimeout(ping, delay);
-    if (t.unref) t.unref();
+  function scheduleNextExternal() {
+    const jitter = Math.floor(Math.random() * 30_000) - 15_000;
+    const delay  = Math.max(EXTERNAL_INTERVAL_MS + jitter, 60_000);
+    const t = setTimeout(pingExternal, delay);
+    if (t.unref) t.unref(); // external ping doesn't need to keep Node alive — local one does
   }
 
-  // First ping after 30 seconds (server fully up)
-  const warmup = setTimeout(ping, 30_000);
+  // First external ping after 30 seconds
+  const warmup = setTimeout(pingExternal, 30_000);
   if (warmup.unref) warmup.unref();
 }
