@@ -10,27 +10,24 @@ export default {
         const prefix = config?.prefix || '.';
         const botName = config?.botName || 'EDWARD MD';
 
-        // Sender number (strip @s.whatsapp.net / device suffix)
         const senderNum = (senderId || '').split('@')[0].split(':')[0];
         const userDisplay = senderNum ? `+${senderNum}` : 'User';
 
-        // Time in Africa/Lagos
         const now = new Date();
         const lagosTime = now.toLocaleString('en-US', {
             timeZone: 'Africa/Lagos',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false,
             weekday: 'long',
             year: 'numeric',
             month: 'long',
             day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
         });
 
         const registry = globalThis._pluginRegistry || [];
 
-        // Build category → command list map
         const categories = {};
         for (const p of registry) {
             const cat = (p.category || 'general').toLowerCase();
@@ -40,42 +37,42 @@ export default {
 
         // Category display config: [emoji, label, description]
         const catConfig = {
-            owner:      ['👑', 'OWNER',             'Owner Only'],
-            admin:      ['🛡️', 'ADMIN',             'Group Management'],
-            group:      ['👥', 'GROUP',              'Group Tools'],
-            general:    ['🔧', 'GENERAL',            'Basic Utilities'],
-            main:       ['🔧', 'GENERAL',            'Basic Utilities'],
-            download:   ['📥', 'DOWNLOAD',           'Media Downloader'],
-            downloader: ['📥', 'DOWNLOAD',           'Media Downloader'],
-            ai:         ['🤖', 'AI & TOOLS',         'Smart Automation'],
-            fun:        ['🎉', 'FUN',                'Entertainment'],
-            games:      ['🎮', 'GAMES',              'Mini-Games'],
-            media:      ['🎬', 'MEDIA',              'Media Tools'],
-            sticker:    ['🖼️', 'STICKERS',          'Sticker Maker'],
-            stickers:   ['🖼️', 'STICKERS',          'Sticker Maker'],
-            tools:      ['🛠️', 'TOOLS',             'Useful Tools'],
-            search:     ['🔍', 'SEARCH',             'Search Engines'],
-            info:       ['ℹ️', 'INFO',               'Information'],
-            news:       ['📰', 'NEWS',               'Latest News'],
-            music:      ['🎵', 'MUSIC',              'Music Tools'],
+            owner:      ['👑', 'OWNER COMMANDS',     'Owner Only'],
+            admin:      ['🛡️', 'ADMIN COMMANDS',     'Group Management'],
+            group:      ['👥', 'GROUP COMMANDS',      'Group Tools'],
+            general:    ['🔧', 'GENERAL COMMANDS',    'Basic Utilities'],
+            main:       ['🔧', 'GENERAL COMMANDS',    'Basic Utilities'],
+            download:   ['📥', 'DOWNLOAD COMMANDS',   'Media Downloader'],
+            downloader: ['📥', 'DOWNLOAD COMMANDS',   'Media Downloader'],
+            ai:         ['🤖', 'AI & TOOLS',          'Smart Automation'],
+            fun:        ['🎉', 'FUN COMMANDS',         'Entertainment'],
+            games:      ['🎮', 'GAMES',               'Mini-Games'],
+            media:      ['🎬', 'MEDIA',               'Media Tools'],
+            sticker:    ['🖼️', 'STICKERS',           'Sticker Maker'],
+            stickers:   ['🖼️', 'STICKERS',           'Sticker Maker'],
+            tools:      ['🛠️', 'TOOLS',              'Useful Tools'],
+            search:     ['🔍', 'SEARCH',              'Search Engines'],
+            info:       ['ℹ️', 'INFO COMMANDS',       'Information'],
+            news:       ['📰', 'NEWS',                'Latest News'],
+            music:      ['🎵', 'MUSIC',               'Music Tools'],
             stalk:      ['🕵️', 'STALK',             'Profile Lookup'],
-            utility:    ['🧮', 'UTILITY',            'Advanced Utilities'],
-            anime:      ['🎌', 'ANIME',              'Anime & Manga'],
-            convert:    ['🔄', 'CONVERTER',          'File Conversion'],
-            converter:  ['🔄', 'CONVERTER',          'File Conversion'],
-            img_edit:   ['🖌️', 'IMAGE EDIT',        'Image Manipulation'],
-            wallpapers: ['🌄', 'WALLPAPERS',         'Wallpaper Gallery'],
-            quotes:     ['💬', 'QUOTES',             'Quotes & Wisdom'],
-            whatsapp:   ['💚', 'WHATSAPP',           'WA Utilities'],
-            economy:    ['💰', 'ECONOMY',            'Coins & Rewards'],
-            nsfw:       ['🔞', 'NSFW',               'Adult Content (Admin)'],
-            other:      ['⚙️', 'OTHER',             'Miscellaneous'],
-            misc:       ['⚙️', 'MISC',              'Miscellaneous'],
-            menu:       ['📋', 'MENU',               'Help & Navigation'],
+            utility:    ['🧮', 'UTILITY',             'Advanced Utilities'],
+            anime:      ['🎌', 'ANIME',               'Anime & Manga'],
+            convert:    ['🔄', 'CONVERTER',           'File Conversion'],
+            converter:  ['🔄', 'CONVERTER',           'File Conversion'],
+            img_edit:   ['🖌️', 'IMAGE EDIT',         'Image Manipulation'],
+            wallpapers: ['🌄', 'WALLPAPERS',          'Wallpaper Gallery'],
+            quotes:     ['💬', 'QUOTES',              'Quotes & Wisdom'],
+            whatsapp:   ['💚', 'WHATSAPP',            'WA Utilities'],
+            economy:    ['💰', 'ECONOMY',             'Coins & Rewards'],
+            nsfw:       ['🔞', 'NSFW',                'Adult Content (Admin)'],
+            other:      ['⚙️', 'OTHER',              'Miscellaneous'],
+            misc:       ['⚙️', 'OTHER',              'Miscellaneous'],
+            menu:       ['📋', 'MENU & NOTES',        'Help & Navigation'],
+            image:      ['▸',  'IMAGE',               'Image Tools'],
         };
 
-        // Merge duplicate categories (e.g. 'sticker' and 'stickers' → one section)
-        const mergeMap = { main: 'general', download: 'downloader', stickers: 'sticker', convert: 'converter' };
+        const mergeMap = { main: 'general', download: 'downloader', stickers: 'sticker', convert: 'converter', misc: 'other' };
         const mergedCategories = {};
         for (const [cat, cmds] of Object.entries(categories)) {
             const key = mergeMap[cat] || cat;
@@ -83,12 +80,11 @@ export default {
             for (const c of cmds) mergedCategories[key].add(c);
         }
 
-        // Preferred category order
         const ORDER = [
             'owner','admin','group','general','downloader','ai','fun',
             'games','media','sticker','img_edit','tools','search','info',
             'news','music','stalk','utility','anime','converter','wallpapers',
-            'quotes','whatsapp','economy','nsfw','menu','other','misc',
+            'quotes','whatsapp','economy','nsfw','menu','other','image',
         ];
 
         const totalCmds = [...new Set(registry.map(p => p.command))].length;
@@ -99,15 +95,14 @@ export default {
         text += `( 🍁 ) ───ⒺⒹⓌⒶⓇⒹ ⓂⒹ\n`;
         text += `─── REVOLUTIONARY AUTOMATION SYSTEM ───\n`;
         text += `Next-generation bot with speed, flexibility,\nand absolute security has awakened.\n`;
-        text += `〢「 🅴🅳🆆🅰🆁🅳  🅼🅳 」\n\n`;
-        text += `࿇ *Bot*    : ${botName}\n`;
-        text += `࿇ *Prefix* : [ ${prefix} ]\n`;
-        text += `࿇ *User*   : ${userDisplay}\n`;
-        text += `࿇ *Mode*   : Multi-Plugin\n`;
-        text += `࿇ *Zone*   : Africa/Lagos\n`;
-        text += `࿇ *Time*   : ${lagosTime}\n`;
-        text += `࿇ *Cmds*   : ${totalCmds} commands\n`;
-        text += `\n`;
+        text += `〢「 🅴🅳🆆🅰🆁🅳  🅼🅳 」\n`;
+        text += `࿇ Bot    : ${botName}\n`;
+        text += `࿇ Prefix : [ ${prefix} ]\n`;
+        text += `࿇ User   : ${userDisplay}\n`;
+        text += `࿇ Type   : ( Case─Plugins )\n`;
+        text += `࿇ League : Africa/Lagos\n`;
+        text += `࿇ Time   : ${lagosTime}\n`;
+        text += `࿇ Cmds   : ${totalCmds} commands\n`;
 
         // ── Categories ────────────────────────────────────────────
         const allKeys = Object.keys(mergedCategories);
@@ -120,22 +115,19 @@ export default {
             const cmds = [...mergedCategories[cat]].sort();
             if (cmds.length === 0) continue;
             const [emoji, label, desc] = catConfig[cat] || ['▸', cat.toUpperCase(), ''];
-            text += `╭──── ${emoji} *${label}* (${cmds.length})\n`;
-            if (desc) text += `│  ▸ ${desc}\n`;
-            // Group into rows of 3 for compactness
-            for (let i = 0; i < cmds.length; i += 3) {
-                const row = cmds.slice(i, i + 3).map(c => `${prefix}${c}`).join('   ');
-                text += `│  ${row}\n`;
+            text += `┌─────────\n`;
+            text += `├──── ▢ ( ${emoji} ) ${label} (${cmds.length})\n`;
+            if (desc) text += `├── ▢ ${desc}\n`;
+            for (const c of cmds) {
+                text += `│── ${prefix}${c}\n`;
             }
-            text += `╰────\n`;
+            text += `└────\n`;
         }
 
         // ── Footer ────────────────────────────────────────────────
-        text += `\n╔══════════════════════╗\n`;
-        text += `║  💡 ${prefix}help <cmd>  for info  ║\n`;
-        text += `║  📌 Admin cmds need perms  ║\n`;
-        text += `╚══════════════════════╝\n`;
-        text += `🍁  *${botName}*  🍁`;
+        text += `💡  Type ${prefix}help  for command info\n`;
+        text += `📌  Owner & Admin commands require proper permission\n`;
+        text += `🍁  ${botName}  🍁`;
 
         await sock.sendMessage(chatId, { text }, { quoted: message });
     }

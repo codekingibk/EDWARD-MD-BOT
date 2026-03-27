@@ -121,6 +121,8 @@ function wrapCmdHandler(
     const q = args.join(' ');
     const reply = (text: string) =>
       sock.sendMessage(chatId, { text: String(text) }, { quoted: message }).catch(() => {});
+    const react = (emoji: string) =>
+      sock.sendMessage(chatId, { react: { text: emoji, key: message.key } }).catch(() => {});
 
     const m: any = {
       sender: senderId,
@@ -143,7 +145,9 @@ function wrapCmdHandler(
       isAdmin,
       isBotAdmins: false,
       senderNumber: senderId.split('@')[0].split(':')[0],
+      prefix: config?.prefix || '.',
       reply,
+      react,
     };
 
     await handler(sock, message, m, helpers);

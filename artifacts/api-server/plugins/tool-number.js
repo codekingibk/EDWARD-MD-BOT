@@ -61,7 +61,7 @@ async (conn, mek, m, { from, args, reply }) => {
             `⏳ *Timeout*: API took too long\nTry smaller country codes like 'us', 'gb'` :
             `⚠ *Error*: ${err.message}\nUse format: .tempnum <country-code>`;
             
-        reply(`${errorMessage}\n\n🔑 Remember: ${prefix}otpinbox <number>`);
+        reply(`${errorMessage}\n\n🔑 Remember: .otpbox <number>`);
     }
 });
 
