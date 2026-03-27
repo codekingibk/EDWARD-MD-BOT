@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { useApp } from '../store';
 import {
   MessageSquare, Send, Terminal, Users, UsersRound, Clock, Zap, HardDrive,
-  Cpu, TrendingUp, AlertTriangle, Wifi, WifiOff, Activity, BarChart3, Globe
+  Cpu, TrendingUp, AlertTriangle, Wifi, WifiOff, Activity, BarChart3, Globe, RefreshCw
 } from 'lucide-react';
 
 function formatUptime(ms: number) {
@@ -86,6 +87,23 @@ export default function DashboardHome() {
   const totalPluginUses = stats.commandsExecuted;
   const memLabel = stats.memoryUsedMB ? `${stats.memoryUsedMB}MB / ${stats.memoryTotalMB}MB` : '';
 
+  const [reconnecting, setReconnecting] = useState(false);
+  const [reconnectMsg, setReconnectMsg] = useState('');
+
+  const handleReconnect = async () => {
+    setReconnecting(true);
+    setReconnectMsg('');
+    try {
+      const res = await fetch('/api/restart', { method: 'POST' });
+      const d = await res.json().catch(() => ({}));
+      setReconnectMsg(d.message || 'Reconnecting…');
+    } catch {
+      setReconnectMsg('Failed to reconnect.');
+    } finally {
+      setTimeout(() => { setReconnecting(false); setReconnectMsg(''); }, 4000);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Status Banner */}
@@ -109,7 +127,7 @@ export default function DashboardHome() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-4 text-sm">
+        <div className="flex items-center gap-3 text-sm">
           <div className="text-center">
             <p className="text-lg font-bold text-text-primary">{formatUptime(stats.uptime)}</p>
             <p className="text-xs text-text-muted">Uptime</p>
@@ -118,6 +136,19 @@ export default function DashboardHome() {
           <div className="text-center">
             <p className="text-lg font-bold text-text-primary">{stats.totalPlugins || plugins.length}</p>
             <p className="text-xs text-text-muted">Plugins Loaded</p>
+          </div>
+          <div className="w-px h-8 bg-border" />
+          <div className="flex flex-col items-center gap-1">
+            <button
+              onClick={handleReconnect}
+              disabled={reconnecting}
+              title="Reconnect WhatsApp without clearing session"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-blue/10 border border-accent-blue/25 text-accent-blue text-xs font-medium rounded-lg hover:bg-accent-blue/20 transition-all disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${reconnecting ? 'animate-spin' : ''}`} />
+              {reconnecting ? 'Reconnecting…' : 'Reconnect'}
+            </button>
+            {reconnectMsg && <p className="text-[10px] text-text-muted max-w-[110px] text-center leading-tight">{reconnectMsg}</p>}
           </div>
         </div>
       </div>

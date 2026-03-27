@@ -1,7 +1,7 @@
 const axios = require('axios');
 const { cmd } = require('../command');
 
-const BASE = 'https://www.1secmail.com/api/v1/';
+const GML = 'https://api.guerrillamail.com/ajax.php';
 
 cmd({
     pattern: "tempmail",
@@ -13,11 +13,11 @@ cmd({
 },
 async (conn, mek, m, { from, reply }) => {
     try {
-        const { data } = await axios.get(`${BASE}?action=genRandomMailbox&count=1`, { timeout: 10000 });
-        if (!Array.isArray(data) || !data[0]) return reply('❌ Failed to generate email. Try again.');
+        const { data } = await axios.get(`${GML}?f=get_email_address`, { timeout: 10000 });
+        if (!data || !data.email_addr) return reply('❌ Failed to generate email. Try again.');
 
-        const email = data[0];
-        const [login, domain] = email.split('@');
+        const email = data.email_addr;
+        const sid = data.sid_token;
 
         const message =
 `📧 *TEMPORARY EMAIL GENERATED*
@@ -26,16 +26,16 @@ async (conn, mek, m, { from, reply }) => {
 ${email}
 
 📥 *Check Inbox:*
-.checkmail ${login} ${domain}
+.checkmail ${sid}
 
-_Use .checkmail <login> <domain> to see your messages_
-_Example: .checkmail ${login} ${domain}_`;
+_Use .checkmail <session> to see your messages_
+_Session token: ${sid}_`;
 
         await conn.sendMessage(from, { text: message }, { quoted: mek });
 
     } catch (e) {
         console.error('TempMail error:', e);
-        reply(`❌ Error: ${e.message}`);
+        reply(`❌ Error generating email: ${e.message}`);
     }
 });
 
@@ -49,32 +49,30 @@ cmd({
 },
 async (conn, mek, m, { from, reply, args }) => {
     try {
-        const login = args[0];
-        const domain = args[1];
-        if (!login || !domain) return reply('🔑 Usage: .checkmail <login> <domain>\nExample: .checkmail abc123 1secmail.com');
+        const sid = args[0];
+        if (!sid) return reply('🔑 Usage: .checkmail <session-token>\nGet a session token from .tempmail first.');
 
-        const { data } = await axios.get(`${BASE}?action=getMessages&login=${encodeURIComponent(login)}&domain=${encodeURIComponent(domain)}`, { timeout: 10000 });
+        const { data } = await axios.get(
+            `${GML}?f=get_email_list&offset=0&seq=0&sid_token=${encodeURIComponent(sid)}`,
+            { timeout: 10000 }
+        );
 
-        if (!Array.isArray(data)) return reply('❌ Invalid response from mail server.');
+        if (!data || !data.list) return reply('❌ Invalid session or no response from mail server.');
 
-        if (data.length === 0) return reply('📭 Your inbox is empty. Check back in a moment.');
+        if (!data.list.length) return reply('📭 Your inbox is empty. Wait a moment and check again.');
 
-        let messageList = `📬 *You have ${data.length} message(s)*\n\n`;
-        for (let i = 0; i < Math.min(data.length, 5); i++) {
-            const msg = data[i];
-            const { data: full } = await axios.get(
-                `${BASE}?action=readMessage&login=${encodeURIComponent(login)}&domain=${encodeURIComponent(domain)}&id=${msg.id}`,
-                { timeout: 10000 }
-            );
-            const body = (full.textBody || full.htmlBody || '').replace(/<[^>]+>/g, '').trim().substring(0, 200);
+        let messageList = `📬 *You have ${data.list.length} message(s)*\n\n`;
+        for (let i = 0; i < Math.min(data.list.length, 5); i++) {
+            const msg = data.list[i];
+            const body = (msg.mail_excerpt || '').trim().substring(0, 200);
             messageList +=
 `━━━━━━━━━━━━━━━━━━
 📌 *Message ${i + 1}*
-👤 *From:* ${msg.from}
-📝 *Subject:* ${msg.subject}
-⏰ *Date:* ${msg.date}
+👤 *From:* ${msg.mail_from}
+📝 *Subject:* ${msg.mail_subject}
+⏰ *Date:* ${new Date(Number(msg.mail_timestamp) * 1000).toLocaleString()}
 
-📄 *Content:*
+📄 *Preview:*
 ${body}${body.length === 200 ? '...' : ''}
 
 `;

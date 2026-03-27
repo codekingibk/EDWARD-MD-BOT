@@ -9,13 +9,18 @@ cmd({
   filename: __filename
 }, async (conn, m, store, { from, args, reply }) => {
   try {
-    const repoName = args.join(" ");
+    let repoName = args.join(" ").trim();
     if (!repoName) {
       return reply(
         "❌ Please provide a GitHub repository.\n\n" +
-        "*Example:* `.srepo whatsapp-bot/baileys`"
+        "*Example:* `.srepo owner/repo`\n" +
+        "*Or:* `.srepo https://github.com/owner/repo`"
       );
     }
+
+    // Accept full GitHub URLs like https://github.com/owner/repo
+    const urlMatch = repoName.match(/github\.com\/([^\/\s]+\/[^\/\s]+?)(?:\.git)?(?:\/.*)?$/);
+    if (urlMatch) repoName = urlMatch[1];
 
     const apiUrl = `https://api.github.com/repos/${repoName}`;
     const { data } = await axios.get(apiUrl, {

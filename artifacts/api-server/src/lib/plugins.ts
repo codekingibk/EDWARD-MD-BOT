@@ -131,6 +131,10 @@ function wrapCmdHandler(
       quoted: (message.message?.extendedTextMessage?.contextInfo?.quotedMessage)
         ? { sender: message.message.extendedTextMessage.contextInfo.participant || senderId }
         : null,
+      react: (emoji: string) =>
+        sock.sendMessage(chatId, { react: { text: emoji, key: message.key } }).catch(() => {}),
+      reply: (text: string) =>
+        sock.sendMessage(chatId, { text: String(text) }, { quoted: message }).catch(() => {}),
     };
 
     const helpers = {
