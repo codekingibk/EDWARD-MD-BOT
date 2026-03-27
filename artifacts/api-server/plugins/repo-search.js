@@ -20,13 +20,13 @@ cmd({
     const apiUrl = `https://api.github.com/repos/${repoName}`;
     const { data } = await axios.get(apiUrl, {
       headers: {
-        "User-Agent": "𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃"
+        "User-Agent": "EDWARD MD"
       }
     });
 
     const msg = `
 *╭ׂ┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
-*│ ╌─̇─̣⊰ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃 ⊱┈─̇─̣╌*
+*│ ╌─̇─̣⊰ EDWARD MD ⊱┈─̇─̣╌*
 *│─̇─̣┄┄┄┄┄┄┄┄┄┄┄┄┄─̇─̣*
 *│❀ 📁 𝐑𝐞𝐩𝐨:* ${data.name}
 *│❀ 👤 𝐎𝐰𝐧𝐞𝐫:* ${data.owner.login}
@@ -39,7 +39,7 @@ cmd({
 *│❀ 🔄 𝐔𝐩𝐝𝐚𝐭𝐞𝐝:* ${new Date(data.updated_at).toDateString()}
 *╰┄─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
 
-> 📌 ᴘᴏᴡᴇʀ ʙʏ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃*
+> 📌 ᴘᴏᴡᴇʀ ʙʏ EDWARD MD*
 `;
 
     await conn.sendMessage(from, { text: msg }, { quoted: m });

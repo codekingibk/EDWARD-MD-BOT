@@ -50,5 +50,3 @@ async (conn, mek, m, {
     reply("Failed to capture the screenshot. Please try again.");
   }
 });
-
-

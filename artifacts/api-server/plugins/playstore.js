@@ -28,7 +28,7 @@ async (conn, mek, m, { from, q, reply }) => {
 
         // 🎨 FAIZAN-MD STYLE (ONLY STYLE CHANGED)
         const msg = `*╭ׂ┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
-*│ ╌─̇─̣⊰ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃 ⊱┈─̇─̣╌*
+*│ ╌─̇─̣⊰ EDWARD MD ⊱┈─̇─̣╌*
 *│─̇─̣┄┄┄┄┄┄┄┄┄┄┄┄┄─̇─̣*
 *│❀ 📱 𝐀𝐩𝐩 𝐍𝐚𝐦𝐞:* ${app.name}
 *│❀ 👨‍💻 𝐃𝐞𝐯𝐞𝐥𝐨𝐩𝐞𝐫:* ${app.developer}
@@ -39,7 +39,7 @@ async (conn, mek, m, { from, q, reply }) => {
 *│❀ 🔗 𝐋𝐢𝐧𝐤:* ${app.link}
 *╰┄─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
 
-> 📌 ᴘᴏᴡᴇʀ ʙʏ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃`;
+> 📌 ᴘᴏᴡᴇʀ ʙʏ EDWARD MD`;
 
         await conn.sendMessage(from, {
             image: { url: app.img },

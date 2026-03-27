@@ -13,7 +13,7 @@ cmd({
     if (!q) {
       return reply(`
 *╭ׂ┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
-*│ ╌─̇─̣⊰ _𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃_ ⊱┈─̇─̣╌*
+*│ ╌─̇─̣⊰ _EDWARD MD_ ⊱┈─̇─̣╌*
 *│❌ Please provide a valid Twitter/X username*
 *│📌 Example:* .xstalk elonmusk
 *╰┄─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
@@ -31,7 +31,7 @@ cmd({
     if (!data || !data.status || !data.data) {
       return reply(`
 *╭ׂ┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
-*│ ╌─̇─̣⊰ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃 ⊱┈─̇─̣╌*
+*│ ╌─̇─̣⊰ EDWARD MD ⊱┈─̇─̣╌*
 *│⚠️ Failed to fetch Twitter/X user details*
 *│⏳ Please try again later*
 *╰┄─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
@@ -43,7 +43,7 @@ cmd({
 
     const caption = `
 *╭ׂ┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
-*│ ╌─̇─̣⊰ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃 ⊱┈─̇─̣╌*
+*│ ╌─̇─̣⊰ EDWARD MD ⊱┈─̇─̣╌*
 *│─̇─̣┄┄┄┄┄┄┄┄┄┄┄┄┄─̇─̣*
 *│❀ 👤 𝐍𝐚𝐦𝐞:* ${user.name}
 *│❀ 🆔 𝐔𝐬𝐞𝐫𝐧𝐚𝐦𝐞:* @${user.username}
@@ -55,7 +55,7 @@ cmd({
 *│❀ 🔗 𝐏𝐫𝐨𝐟𝐢𝐥𝐞:* ${user.url}
 *╰┄─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
 
-> 📌 ᴘᴏᴡᴇʀ ʙʏ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃
+> 📌 ᴘᴏᴡᴇʀ ʙʏ EDWARD MD
 `;
 
     await conn.sendMessage(from, {
@@ -67,7 +67,7 @@ cmd({
     console.error("XSTALK ERROR:", error);
     reply(`
 *╭ׂ┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
-*│ ╌─̇─̣⊰ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃 ⊱┈─̇─̣╌*
+*│ ╌─̇─̣⊰ EDWARD MD ⊱┈─̇─̣╌*
 *│❌ Twitter/X stalk error*
 *│⏳ Please try again later*
 *╰┄─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*

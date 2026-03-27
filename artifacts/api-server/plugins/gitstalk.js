@@ -27,12 +27,10 @@ async (conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sen
 👥 *Followers*: ${data.followers} | Following: ${data.following}
 📅 *Created At*: ${new Date(data.created_at).toDateString()}
 🔭 *Public Gists*: ${data.public_gists}
-> *📌 ᴘᴏᴡᴇʀ ʙʏ *𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃*`;
+> *📌 ᴘᴏᴡᴇʀ ʙʏ *EDWARD MD*`;
           const sentMsg = await conn.sendMessage(from,{image:{url: data.avatar_url },caption: userInfo },{quoted:mek })
     } catch (e) {
         console.log(e);
         reply(`error: ${e.response ? e.response.data.message : e.message}`);
     }
 });
-
-

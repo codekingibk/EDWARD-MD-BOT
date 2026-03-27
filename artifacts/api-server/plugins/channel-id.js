@@ -12,7 +12,7 @@ cmd({
     if (!q) {
       return reply(
 `╭ׂ┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭
-│ ╌─̇─̣⊰ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃 ⊱┈─̇─̣╌
+│ ╌─̇─̣⊰ EDWARD MD ⊱┈─̇─̣╌
 │─̇─̣┄┄┄┄┄┄┄┄┄┄┄┄┄─̇─̣
 │❌ Channel link missing
 │✎ Example:
@@ -25,7 +25,7 @@ cmd({
     if (!match) {
       return reply(
 `╭ׂ┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭
-│ ╌─̇─̣⊰ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃 ⊱┈─̇─̣╌
+│ ╌─̇─̣⊰ EDWARD MD ⊱┈─̇─̣╌
 │─̇─̣┄┄┄┄┄┄┄┄┄┄┄┄┄─̇─̣
 │⚠️ Invalid channel link
 │✔ Use proper WhatsApp
@@ -42,7 +42,7 @@ cmd({
     } catch (e) {
       return reply(
 `╭ׂ┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭
-│ ╌─̇─̣⊰ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃 ⊱┈─̇─̣╌
+│ ╌─̇─̣⊰ EDWARD MD ⊱┈─̇─̣╌
 │─̇─̣┄┄┄┄┄┄┄┄┄┄┄┄┄─̇─̣
 │❌ Failed to fetch channel
 │🔒 Link may be expired
@@ -53,7 +53,7 @@ cmd({
     if (!metadata || !metadata.id) {
       return reply(
 `╭ׂ┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭
-│ ╌─̇─̣⊰ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃 ⊱┈─̇─̣╌
+│ ╌─̇─̣⊰ EDWARD MD ⊱┈─̇─̣╌
 │─̇─̣┄┄┄┄┄┄┄┄┄┄┄┄┄─̇─̣
 │❌ Channel not found
 │⏳ Try again later
@@ -80,7 +80,7 @@ cmd({
   : "Unknown"}
 ╰┄─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭
 
-> 📌 ᴘᴏᴡᴇʀ ʙʏ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃`;
+> 📌 ᴘᴏᴡᴇʀ ʙʏ EDWARD MD`;
 
     if (metadata.preview) {
       await conn.sendMessage(from, {
@@ -95,7 +95,7 @@ cmd({
     console.error("CID ERROR:", error);
     reply(
 `╭ׂ┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭
-│ ╌─̇─̣⊰ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃 ⊱┈─̇─̣╌
+│ ╌─̇─̣⊰ EDWARD MD ⊱┈─̇─̣╌
 │─̇─̣┄┄┄┄┄┄┄┄┄┄┄┄┄─̇─̣
 │❌ Unexpected Error
 │⏳ Try again later

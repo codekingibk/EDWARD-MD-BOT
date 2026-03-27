@@ -13,7 +13,7 @@ cmd({
     if (!args[0]) {
       return reply(`
 *╭ׂ┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
-*│ ╌─̇─̣⊰ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃 _³⁰³ ⊱┈─̇─̣╌*
+*│ ╌─̇─̣⊰ EDWARD MD _³⁰³ ⊱┈─̇─̣╌*
 *│─̇─̣┄┄┄┄┄┄┄┄┄┄┄┄┄─̇─̣*
 *│❌ GitHub link missing*
 *│ Example:*
@@ -41,13 +41,13 @@ cmd({
 
     await reply(`
 *╭ׂ┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
-*│ ╌─̇─̣⊰ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃 _³⁰³ ⊱┈─̇─̣╌*
+*│ ╌─̇─̣⊰ EDWARD MD _³⁰³ ⊱┈─̇─̣╌*
 *│─̇─̣┄┄┄┄┄┄┄┄┄┄┄┄┄─̇─̣*
 *│📦 Repository:* ${username}/${repo}
 *│⬇️ Downloading ZIP...*
 *╰┄─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
 
-> 📌 ᴘᴏᴡᴇʀ ʙʏ *𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃*
+> 📌 ᴘᴏᴡᴇʀ ʙʏ *EDWARD MD*
 `);
 
     await conn.sendMessage(from, {
@@ -60,7 +60,7 @@ cmd({
         isForwarded: true,
         forwardedNewsletterMessageInfo: {
           newsletterJid: "120363423019441144@newsletter",
-          newsletterName: "𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃",
+          newsletterName: "EDWARD MD",
           serverMessageId: 143
         }
       }
@@ -70,7 +70,7 @@ cmd({
     console.error("GITCLONE ERROR:", err);
     reply(`
 *╭ׂ┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
-*│ ╌─̇─̣⊰ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃 _³⁰³ ⊱┈─̇─̣╌*
+*│ ╌─̇─̣⊰ EDWARD MD _³⁰³ ⊱┈─̇─̣╌*
 *│─̇─̣┄┄┄┄┄┄┄┄┄┄┄┄┄─̇─̣*
 *│❌ GitClone Error*
 *│⏳ Try again later*

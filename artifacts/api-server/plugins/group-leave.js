@@ -37,4 +37,3 @@ async (conn, mek, m, {
         reply(`❌ Error: ${e}`);
     }
 });
-

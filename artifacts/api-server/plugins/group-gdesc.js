@@ -24,4 +24,3 @@ async (conn, mek, m, { from, isGroup, isAdmins, isBotAdmins, args, q, reply }) =
         reply("❌ Failed to update the group description. Please try again.");
     }
 });
-
