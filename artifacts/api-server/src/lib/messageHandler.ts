@@ -118,11 +118,25 @@ export async function handleMessage(
         await sock.readMessages([msg.key]).catch(() => {});
       }
 
+      // Unwrap all message layers — modern WhatsApp wraps messages in ephemeral,
+      // viewOnce, documentWithCaption, and other containers.
+      const inner =
+        msg.message?.ephemeralMessage?.message ||
+        msg.message?.viewOnceMessage?.message ||
+        msg.message?.viewOnceMessageV2?.message?.viewOnceMessage?.message ||
+        msg.message?.documentWithCaptionMessage?.message ||
+        msg.message?.editedMessage?.message?.protocolMessage?.editedMessage ||
+        msg.message;
+
       const text =
-        msg.message?.conversation ||
-        msg.message?.extendedTextMessage?.text ||
-        msg.message?.imageMessage?.caption ||
-        msg.message?.videoMessage?.caption ||
+        inner?.conversation ||
+        inner?.extendedTextMessage?.text ||
+        inner?.imageMessage?.caption ||
+        inner?.videoMessage?.caption ||
+        inner?.documentMessage?.caption ||
+        inner?.buttonsResponseMessage?.selectedDisplayText ||
+        inner?.listResponseMessage?.title ||
+        inner?.templateButtonReplyMessage?.selectedId ||
         '';
 
       if (!text) continue;
@@ -145,7 +159,9 @@ export async function handleMessage(
         }
       }
 
-      const prefixes = [config.prefix, '!', '/'];
+      // Build prefix list — always include '.' and '!' as fallbacks,
+      // skip empty-string prefix to avoid treating every message as a command.
+      const prefixes = [...new Set([config.prefix, '.', '!', '/'].filter(p => p && p.trim().length > 0))];
       let isCommand = false;
       let usedPrefix = '';
       let commandBody = '';
