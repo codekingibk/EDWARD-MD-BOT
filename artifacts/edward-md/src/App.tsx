@@ -5,16 +5,15 @@ import DashboardHome from './components/DashboardHome';
 import Plugins from './components/Plugins';
 import Settings from './components/Settings';
 import Logs from './components/Logs';
-import TerminalPage from './components/Terminal';
 import Profile from './components/Profile';
 import {
-  LayoutDashboard, Puzzle, Settings as SettingsIcon, ScrollText, Terminal,
+  LayoutDashboard, Puzzle, Settings as SettingsIcon, ScrollText,
   LogOut, Bot, Menu, ChevronLeft, Wifi, WifiOff, Bell,
   ExternalLink, Heart, UserCircle, X, Check
 } from 'lucide-react';
 import { useState } from 'react';
 
-type Page = 'dashboard' | 'plugins' | 'settings' | 'logs' | 'terminal' | 'profile';
+type Page = 'dashboard' | 'plugins' | 'settings' | 'logs' | 'profile';
 
 function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { notifications, dismissNotification } = useApp();
@@ -59,12 +58,11 @@ function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => vo
 
 function Sidebar() {
   const { page, setPage, sidebarOpen, setSidebarOpen, botConfig, isConnected, logout, stats, currentUser } = useApp();
-  const navItems: { id: Page; icon: any; label: string }[] = [
+  const navItems: { id: Page; icon: any; label: string; badge?: string }[] = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'plugins', icon: Puzzle, label: 'Plugins' },
     { id: 'settings', icon: SettingsIcon, label: 'Settings' },
-    { id: 'logs', icon: ScrollText, label: 'Logs' },
-    { id: 'terminal', icon: Terminal, label: 'Terminal' },
+    { id: 'logs', icon: ScrollText, label: 'Logs', badge: 'Live' },
     { id: 'profile', icon: UserCircle, label: 'Profile' },
   ];
   const formatUptime = (ms: number) => { const s = Math.floor(ms / 1000); const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); return h > 0 ? `${h}h ${m}m` : `${m}m`; };
@@ -108,12 +106,12 @@ function Sidebar() {
           {navItems.map(item => {
             const isActive = page === item.id;
             return (
-              <button key={item.id} onClick={() => { setPage(item.id); if (window.innerWidth < 1024) setSidebarOpen(false); }}
+              <button key={item.id} onClick={() => { setPage(item.id as any); if (window.innerWidth < 1024) setSidebarOpen(false); }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${isActive ? 'bg-wa-green/15 text-wa-green' : 'text-text-secondary hover:text-text-primary hover:bg-bg-card'}`}
                 title={!sidebarOpen ? item.label : undefined}>
                 <item.icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-wa-green' : ''}`} />
                 {sidebarOpen && <span className="animate-fade-in">{item.label}</span>}
-                {sidebarOpen && item.id === 'logs' && <span className="ml-auto text-[10px] bg-wa-green/20 text-wa-green px-1.5 py-0.5 rounded-full">Live</span>}
+                {sidebarOpen && item.badge && <span className="ml-auto text-[10px] bg-wa-green/20 text-wa-green px-1.5 py-0.5 rounded-full">{item.badge}</span>}
               </button>
             );
           })}
@@ -123,7 +121,7 @@ function Sidebar() {
           <div className="px-3 py-3 border-t border-border animate-fade-in">
             <div className="glass rounded-xl p-3 space-y-2">
               <div className="flex justify-between text-[10px]"><span className="text-text-muted">Uptime</span><span className="text-wa-green font-mono">{formatUptime(stats.uptime)}</span></div>
-              <div className="flex justify-between text-[10px]"><span className="text-text-muted">Response</span><span className="text-accent-blue font-mono">{Math.round(stats.avgResponseTime)}ms</span></div>
+              <div className="flex justify-between text-[10px]"><span className="text-text-muted">Groups</span><span className="text-accent-blue font-mono">{stats.activeGroups}</span></div>
               <div className="flex justify-between text-[10px]"><span className="text-text-muted">CPU</span><span className={`font-mono ${stats.cpuUsage > 80 ? 'text-accent-red' : 'text-wa-green'}`}>{Math.round(stats.cpuUsage)}%</span></div>
             </div>
           </div>
@@ -163,9 +161,11 @@ function Header() {
 
         <div className="flex items-center gap-2">
           <div className="hidden md:flex items-center gap-4 mr-4">
-            <div className="text-right"><p className="text-[10px] text-text-muted">Messages</p><p className="text-xs font-semibold text-text-primary tabular-nums">{stats.messagesReceived.toLocaleString()}</p></div>
+            <div className="text-right"><p className="text-[10px] text-text-muted">Recv</p><p className="text-xs font-semibold text-text-primary tabular-nums">{stats.messagesReceived.toLocaleString()}</p></div>
             <div className="w-px h-6 bg-border" />
-            <div className="text-right"><p className="text-[10px] text-text-muted">Commands</p><p className="text-xs font-semibold text-text-primary tabular-nums">{stats.commandsExecuted.toLocaleString()}</p></div>
+            <div className="text-right"><p className="text-[10px] text-text-muted">Sent</p><p className="text-xs font-semibold text-text-primary tabular-nums">{stats.messagesSent.toLocaleString()}</p></div>
+            <div className="w-px h-6 bg-border" />
+            <div className="text-right"><p className="text-[10px] text-text-muted">Users</p><p className="text-xs font-semibold text-text-primary tabular-nums">{stats.activeUsers.toLocaleString()}</p></div>
           </div>
 
           <div className="relative">
@@ -202,7 +202,6 @@ function DashboardLayout() {
           {page === 'plugins' && <Plugins />}
           {page === 'settings' && <Settings />}
           {page === 'logs' && <Logs />}
-          {page === 'terminal' && <TerminalPage />}
           {page === 'profile' && <Profile />}
         </main>
         <footer className="px-6 py-4 border-t border-border text-center">

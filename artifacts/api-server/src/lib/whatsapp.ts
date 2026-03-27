@@ -95,6 +95,8 @@ export class WhatsAppManager {
   private lastMsgCount = 0;
   private lastCmdCount = 0;
   private lastUserCount = 0;
+  private uniqueSenders = new Set<string>();
+  private joinedGroups = new Set<string>();
 
   constructor(io: SocketIOServer) {
     this.io = io;
@@ -315,6 +317,15 @@ export class WhatsAppManager {
         }
         this.startWatchdog();
         this.emitStats();
+        // Fetch real group count
+        try {
+          const groups = await sock.groupFetchAllParticipating();
+          const groupIds = Object.keys(groups);
+          for (const gid of groupIds) this.joinedGroups.add(gid);
+          this.stats.activeGroups = this.joinedGroups.size;
+          this.emitLog('info', `Found ${this.joinedGroups.size} group(s)`, 'Groups');
+          this.emitStats();
+        } catch {}
         // Notify owner on WhatsApp
         setNotifierSocket(sock);
         setNotifierConfig(this.config.ownerNumber, this.config.botName);
@@ -326,6 +337,25 @@ export class WhatsAppManager {
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('messages.upsert', (upsert: BaileysEventMap['messages.upsert']) => {
+      // Track bot's outgoing messages and unique senders
+      if (upsert.type === 'notify') {
+        for (const msg of upsert.messages) {
+          if (msg.key.fromMe) {
+            this.stats.messagesSent++;
+          } else {
+            // Track unique senders
+            const senderJid = msg.key.participant || msg.key.remoteJid || '';
+            if (senderJid && !senderJid.endsWith('@broadcast')) {
+              const bare = senderJid.split(':')[0];
+              if (bare && !this.uniqueSenders.has(bare)) {
+                this.uniqueSenders.add(bare);
+                this.stats.activeUsers = this.uniqueSenders.size;
+              }
+            }
+          }
+        }
+      }
+
       handleMessage(
         sock,
         upsert,
@@ -333,7 +363,6 @@ export class WhatsAppManager {
         (inc) => {
           if (inc.messagesReceived) this.stats.messagesReceived += inc.messagesReceived;
           if (inc.commandsExecuted) this.stats.commandsExecuted += inc.commandsExecuted;
-          if (inc.activeUsers) this.stats.activeUsers += inc.activeUsers;
           this.emitStats();
         },
         (level: string, msg: string, src?: string) => this.emitLog(level as any, msg, src),
@@ -350,7 +379,14 @@ export class WhatsAppManager {
     });
 
     sock.ev.on('groups.upsert', (groups: BaileysEventMap['groups.upsert']) => {
-      this.stats.activeGroups = Math.max(this.stats.activeGroups, groups.length);
+      for (const g of groups) this.joinedGroups.add(g.id);
+      this.stats.activeGroups = this.joinedGroups.size;
+      this.emitStats();
+    });
+
+    sock.ev.on('groups.update', (updates: any[]) => {
+      for (const u of updates) if (u.id) this.joinedGroups.add(u.id);
+      this.stats.activeGroups = this.joinedGroups.size;
       this.emitStats();
     });
 

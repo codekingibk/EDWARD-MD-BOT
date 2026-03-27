@@ -3,7 +3,7 @@ export default {
     command: 'pair',
     aliases: ['paircode', 'session', 'getsession', 'sessionid'],
     category: 'general',
-    description: 'Get session id for MEGA-MD',
+    description: 'Get session id for EDWARD MD',
     usage: '.pair 92305395XXXX',
     async handler(sock, message, args, context) {
         const { chatId } = context;

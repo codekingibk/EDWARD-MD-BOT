@@ -69,7 +69,7 @@ export interface NotificationItem {
   id: string; title: string; message: string; type: 'info' | 'success' | 'warning' | 'error'; timestamp: number; read: boolean;
 }
 
-type Page = 'login' | 'register' | 'pairing' | 'dashboard' | 'plugins' | 'settings' | 'logs' | 'terminal' | 'profile';
+type Page = 'login' | 'register' | 'pairing' | 'dashboard' | 'plugins' | 'settings' | 'logs' | 'profile';
 
 interface AppState {
   page: Page; setPage: (p: Page) => void;

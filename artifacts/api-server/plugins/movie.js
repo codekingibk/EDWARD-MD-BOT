@@ -1,77 +1,78 @@
-import axios from 'axios';
-const OMDB_KEY = 'trilogy';
-export default {
-    command: 'movie',
-    aliases: ['film', 'bollywood', 'omdb', 'imdb'],
-    category: 'info',
-    description: 'Search movie info, ratings, cast, plot',
-    usage: '.movie <movie name>\n.movie Pathaan\n.movie Jawan 2023',
-    async handler(sock, message, args, context) {
-        const { chatId, channelInfo } = context;
-        const input = args.join(' ').trim();
-        if (!input) {
-            return await sock.sendMessage(chatId, {
-                text: `🎬 *Movie Info*\n\n` +
-                    `*Usage:* \`.movie <name>\`\n\n` +
-                    `*Examples:*\n` +
-                    `• \`.movie Pathaan\`\n` +
-                    `• \`.movie Jawan 2023\`\n` +
-                    `• \`.movie Avengers Endgame\`\n` +
-                    `• \`.movie RRR\`\n` +
-                    `• \`.movie Black Panther\`\n\n` +
-                    `Works for Bollywood, Hollywood, and all languages!`,
-                ...channelInfo
-            }, { quoted: message });
+const axios = require('axios');
+const { cmd } = require('../command');
+
+cmd({
+    pattern: "movie",
+    desc: "Fetch detailed information about a movie.",
+    category: "utility",
+    react: "🎬",
+    filename: __filename
+},
+async (conn, mek, m, { from, reply, sender, args }) => {
+    try {
+        // Properly extract the movie name from arguments
+        const movieName = args.length > 0 ? args.join(' ') : m.text.replace(/^[\.\#\$\!]?movie\s?/i, '').trim();
+        
+        if (!movieName) {
+            return reply("📽️ Please provide the name of the movie.\nExample: .movie Iron Man");
         }
-        await sock.sendMessage(chatId, { text: `🔍 Searching *${input}*...`, ...channelInfo }, { quoted: message });
-        try {
-            // Try exact title first, then search
-            const year = input.match(/\b(19|20)\d{2}\b/)?.[0];
-            const title = input.replace(/\b(19|20)\d{2}\b/, '').trim();
-            let url = `https://www.omdbapi.com/?t=${encodeURIComponent(title)}&apikey=${OMDB_KEY}&plot=full`;
-            if (year)
-                url += `&y=${year}`;
-            const res = await axios.get(url, { timeout: 15000 });
-            let data = res.data;
-            // If not found, try search
-            if (data.Response === 'False') {
-                const searchRes = await axios.get(`https://www.omdbapi.com/?s=${encodeURIComponent(title)}&apikey=${OMDB_KEY}&type=movie`, { timeout: 15000 });
-                const searchData = searchRes.data;
-                if (searchData.Response === 'True' && searchData.Search?.length) {
-                    const first = searchData.Search[0];
-                    const detailRes = await axios.get(`https://www.omdbapi.com/?i=${first.imdbID}&apikey=${OMDB_KEY}&plot=full`, { timeout: 15000 });
-                    data = detailRes.data;
+
+        const apiUrl = `https://apis.davidcyriltech.my.id/imdb?query=${encodeURIComponent(movieName)}`;
+        const response = await axios.get(apiUrl);
+
+        if (!response.data.status || !response.data.movie) {
+            return reply("🚫 Movie not found. Please check the name and try again.");
+        }
+
+        const movie = response.data.movie;
+        
+        // Format the caption
+        const dec = `
+🎬 *${movie.title}* (${movie.year}) ${movie.rated || ''}
+
+⭐ *IMDb:* ${movie.imdbRating || 'N/A'} | 🍅 *Rotten Tomatoes:* ${movie.ratings.find(r => r.source === 'Rotten Tomatoes')?.value || 'N/A'} | 💰 *Box Office:* ${movie.boxoffice || 'N/A'}
+
+📅 *Released:* ${new Date(movie.released).toLocaleDateString()}
+⏳ *Runtime:* ${movie.runtime}
+🎭 *Genre:* ${movie.genres}
+
+📝 *Plot:* ${movie.plot}
+
+🎥 *Director:* ${movie.director}
+✍️ *Writer:* ${movie.writer}
+🌟 *Actors:* ${movie.actors}
+
+🌍 *Country:* ${movie.country}
+🗣️ *Language:* ${movie.languages}
+🏆 *Awards:* ${movie.awards || 'None'}
+
+[View on IMDb](${movie.imdbUrl})
+`;
+
+        // Send message with the requested format
+        await conn.sendMessage(
+            from,
+            {
+                image: { 
+                    url: movie.poster && movie.poster !== 'N/A' ? movie.poster : 'https://files.catbox.moe/78gezo.jpg'
+                },
+                caption: dec,
+                contextInfo: {
+                    mentionedJid: [sender],
+                    forwardingScore: 999,
+                    isForwarded: true,
+                    forwardedNewsletterMessageInfo: {
+                        newsletterJid: '120363423019441144@newsletter',
+                        newsletterName: '𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃',
+                        serverMessageId: 143
+                    }
                 }
-            }
-            if (data.Response === 'False') {
-                return await sock.sendMessage(chatId, {
-                    text: `❌ Movie not found: *${input}*`,
-                    ...channelInfo
-                }, { quoted: message });
-            }
-            const ratings = (data.Ratings || []).map((r) => `• ${r.Source}: *${r.Value}*`).join('\n');
-            const imdbStars = data.imdbRating !== 'N/A'
-                ? `${'⭐'.repeat(Math.round(parseFloat(data.imdbRating) / 2)) } (${data.imdbRating}/10)`
-                : 'N/A';
-            const text = `🎬 *${data.Title}* (${data.Year})\n\n` +
-                `🎭 *Genre:* ${data.Genre}\n` +
-                `🌍 *Language:* ${data.Language}\n` +
-                `🎬 *Director:* ${data.Director}\n` +
-                `🎭 *Cast:* ${data.Actors}\n` +
-                `⏱️ *Runtime:* ${data.Runtime}\n` +
-                `🏆 *Awards:* ${data.Awards}\n\n` +
-                `${imdbStars}\n` +
-                `${ratings}\n\n` +
-                `📝 *Plot:*\n${data.Plot}\n\n${ 
-                data.BoxOffice && data.BoxOffice !== 'N/A' ? `💰 *Box Office:* ${data.BoxOffice}\n` : '' 
-                }🔗 imdb.com/title/${data.imdbID}`;
-            await sock.sendMessage(chatId, { text, ...channelInfo }, { quoted: message });
-        }
-        catch (error) {
-            await sock.sendMessage(chatId, {
-                text: `❌ Failed: ${error.message}`,
-                ...channelInfo
-            }, { quoted: message });
-        }
+            },
+            { quoted: mek }
+        );
+
+    } catch (e) {
+        console.error('Movie command error:', e);
+        reply(`❌ Error: ${e.message}`);
     }
-};
+});

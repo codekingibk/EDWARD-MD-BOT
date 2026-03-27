@@ -1,80 +1,89 @@
-import axios from 'axios';
-export default {
-    command: 'tiktok',
-    aliases: ['tt', 'ttdl', 'tiktokdl'],
-    category: 'download',
-    description: 'Download TikTok video without watermark (HD if available)',
-    usage: '.tiktok <TikTok URL>',
-    async handler(sock, message, args, context) {
-        const { chatId, rawText } = context;
-        const prefix = rawText.match(/^[.!#]/)?.[0] || '.';
-        const commandPart = rawText.slice(prefix.length).trim();
-        const parts = commandPart.split(/\s+/);
-        const url = parts.slice(1).join(' ').trim();
-        if (!url) {
-            return await sock.sendMessage(chatId, {
-                text: '🎵 *TikTok Downloader*\n\nPlease provide a TikTok URL.\nExample:\n.tiktok https://vm.tiktok.com/XXXX'
-            }, { quoted: message });
+const { cmd } = require('../command');
+const axios = require('axios');
+
+cmd({
+    pattern: "tt",
+    alias: ["tiktok", "ttdl"],
+    react: "🎵",
+    desc: "Download TikTok video without watermark",
+    category: "download",
+    use: ".tt <tiktok url>",
+    filename: __filename
+},
+async (conn, mek, m, { from, q, reply }) => {
+    try {
+        if (!q || !q.includes("tiktok")) {
+            return reply(`
+*╭ׂ┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
+*│ ╌─̇─̣⊰ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃 ⊱┈─̇─̣╌*
+*│─̇─̣┄┄┄┄┄┄┄┄┄┄┄┄┄─̇─̣*
+*│❌ 𝐈𝐧𝐯𝐚𝐥𝐢𝐝 𝐓𝐢𝐤𝐓𝐨𝐤 𝐋𝐢𝐧𝐤*
+*│📌 Example:*
+*│ .tt https://vm.tiktok.com/xxxx*
+*╰┄─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
+
+> ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃
+`);
         }
-        try {
-            await sock.sendMessage(chatId, {
-                text: '⏳ Downloading TikTok video...'
-            }, { quoted: message });
-            const apiUrl = `https://discardapi.onrender.com/api/dl/tiktok?apikey=guru&url=${encodeURIComponent(url)}`;
-            const { data } = await axios.get(apiUrl, {
-                timeout: 45000,
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+
+        await reply("⏳ *𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃 is downloading TikTok…*");
+
+        const apiUrl = `https://arslanmd-api.vercel.app/api/ttdl?url=${encodeURIComponent(q)}`;
+        const { data } = await axios.get(apiUrl);
+
+        if (!data.status || !data.result?.video) {
+            return reply(`
+*╭ׂ┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
+*│ ╌─̇─̣⊰ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃 ⊱┈─̇─̣╌*
+*│─̇─̣┄┄┄┄┄┄┄┄┄┄┄┄┄─̇─̣*
+*│❌ 𝐓𝐢𝐤𝐓𝐨𝐤 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐅𝐚𝐢𝐥𝐞𝐝*
+*│🔒 Video may be private or expired*
+*╰┄─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
+
+> ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃
+`);
+        }
+
+        const caption = `
+*╭ׂ┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
+*│ ╌─̇─̣⊰ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃 _⁸⁷³ ⊱┈─̇─̣╌*
+*│─̇─̣┄┄┄┄┄┄┄┄┄┄┄┄┄─̇─̣*
+*│🎵 𝐓𝐢𝐤𝐓𝐨𝐤 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐝*
+*│👤 𝐀𝐮𝐭𝐡𝐨𝐫:* ${data.result.author || "Unknown"}
+*│💧 𝐍𝐨 𝐖𝐚𝐭𝐞𝐫𝐦𝐚𝐫𝐤*
+*╰┄─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
+
+> ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃
+`;
+
+        await conn.sendMessage(from, {
+            video: { url: data.result.video },
+            mimetype: "video/mp4",
+            caption,
+            contextInfo: {
+                mentionedJid: [m.sender],
+                forwardingScore: 999,
+                isForwarded: true,
+                forwardedNewsletterMessageInfo: {
+                    newsletterJid: '120363423019441144@newsletter',
+                    newsletterName: '𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃',
+                    serverMessageId: 143
                 }
-            });
-            if (!data?.status || !data?.result) {
-                throw new Error('Invalid API response');
             }
-            const res = data.result;
-            const hd = res.data.find((v) => v.type === 'nowatermark_hd');
-            const noWm = res.data.find((v) => v.type === 'nowatermark');
-            const videoUrl = hd?.url || noWm?.url;
-            if (!videoUrl) {
-                throw new Error('No downloadable video found');
-            }
-            const caption = `🎵 *TikTok Downloader*
-━━━━━━━━━━━━━━━━━━━
-👤 *User:* ${res.author.nickname}
-🆔 *Username:* ${res.author.fullname}
-🌍 *Region:* ${res.region}
-⏱️ *Duration:* ${res.duration}
+        }, { quoted: mek });
 
-❤️ *Likes:* ${res.stats.likes}
-💬 *Comments:* ${res.stats.comment}
-🔁 *Shares:* ${res.stats.share}
-👀 *Views:* ${res.stats.views}
+    } catch (e) {
+        console.error("TIKTOK ERROR:", e);
 
-🎧 *Sound:* ${res.music_info.title}
-📅 *Posted:* ${res.taken_at}
+        reply(`
+*╭ׂ┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
+*│ ╌─̇─̣⊰ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃  ⊱┈─̇─̣╌*
+*│─̇─̣┄┄┄┄┄┄┄┄┄┄┄┄┄─̇─̣*
+*│❌ 𝐓𝐢𝐤𝐓𝐨𝐤 𝐂𝐨𝐦𝐦𝐚𝐧𝐝 𝐄𝐫𝐫𝐨𝐫*
+*│⏳ Please try again later*
+*╰┄─̣┄─̇─̣┄─̇─̣┄─̇─̣┄─̇─̣─̇─̣─᛭*
 
-📝 *Caption:*
-${res.title || 'No caption'}
-
-✨ *Quality:* ${hd ? 'HD No Watermark' : 'No Watermark'}
-━━━━━━━━━━━━━━━━━━━`;
-            await sock.sendMessage(chatId, {
-                video: { url: videoUrl },
-                mimetype: 'video/mp4',
-                caption
-            }, { quoted: message });
-        }
-        catch (error) {
-            console.error('TikTok plugin error:', error);
-            if (error.code === 'ECONNABORTED') {
-                await sock.sendMessage(chatId, {
-                    text: '⏱️ Request timed out. Please try again later.'
-                }, { quoted: message });
-            }
-            else {
-                await sock.sendMessage(chatId, {
-                    text: `❌ Failed to download TikTok video.\nReason: ${error.message}`
-                }, { quoted: message });
-            }
-        }
+> ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝚳𝐒𝚵𝐋𝚫-𝐂𝚮𝐔𝚰-𝚾𝚳𝐃
+`);
     }
-};
+});

@@ -1,0 +1,11 @@
+{
+  "groups": {
+    "120363423534857103@g.us": {
+      "enabled": true,
+      "maxMessages": 5,
+      "windowSeconds": 5,
+      "action": "warn",
+      "warnCount": 3
+    }
+  }
+}

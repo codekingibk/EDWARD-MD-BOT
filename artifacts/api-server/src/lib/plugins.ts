@@ -5,6 +5,9 @@ import { logger } from './logger';
 import { createRequire } from 'module';
 import { pathToFileURL } from 'url';
 
+// RequireFunction for loading CommonJS plugins that use require('../command')
+const _requireFromRoot = createRequire(path.resolve(process.cwd(), 'command.js'));
+
 const log = logger.child({ module: 'PluginLoader' });
 
 export interface PluginDef {
@@ -111,10 +114,97 @@ export async function downloadAllPlugins(onProgress?: (msg: string) => void): Pr
   onProgress?.(`Plugin download complete: ${success}/${toDownload.length} successful`);
 }
 
+/** Convert a cmd()-style handler to our PluginDef handler format. */
+function wrapCmdHandler(
+  handler: (conn: any, mek: any, m: any, helpers: any) => Promise<void>
+): PluginDef['handler'] {
+  return async (sock: any, message: any, args: string[], context: PluginContext) => {
+    const { chatId, senderId, isGroup, isOwner, isAdmin, config } = context;
+    const q = args.join(' ');
+    const reply = (text: string) =>
+      sock.sendMessage(chatId, { text: String(text) }, { quoted: message }).catch(() => {});
+
+    const m: any = {
+      sender: senderId,
+      chat: chatId,
+      isGroup,
+      quoted: (message.message?.extendedTextMessage?.contextInfo?.quotedMessage)
+        ? { sender: message.message.extendedTextMessage.contextInfo.participant || senderId }
+        : null,
+    };
+
+    const helpers = {
+      from: chatId,
+      q,
+      quoted: m.quoted,
+      body: (message.message?.conversation || message.message?.extendedTextMessage?.text || ''),
+      isCmd: true,
+      args,
+      isGroup,
+      isOwner,
+      isAdmin,
+      isBotAdmins: false,
+      senderNumber: senderId.split('@')[0].split(':')[0],
+      reply,
+    };
+
+    await handler(sock, message, m, helpers);
+  };
+}
+
+function registerCmdPlugin(
+  meta: any,
+  handler: (conn: any, mek: any, m: any, helpers: any) => Promise<void>
+) {
+  const command: string = (meta.pattern || meta.command || '').toLowerCase();
+  if (!command) return;
+
+  const plugin: PluginDef = {
+    command,
+    aliases: Array.isArray(meta.alias) ? meta.alias.map((a: string) => a.toLowerCase()) : [],
+    category: (meta.category || 'general').toLowerCase(),
+    description: meta.desc || meta.description || '',
+    usage: meta.use || meta.usage || `.${command}`,
+    ownerOnly: meta.category === 'owner',
+    adminOnly: meta.adminOnly || meta.category === 'admin',
+    groupOnly: meta.groupOnly || false,
+    handler: wrapCmdHandler(handler),
+  };
+
+  loadedPlugins.set(plugin.command, plugin);
+  for (const alias of (plugin.aliases || [])) {
+    loadedPlugins.set(alias, plugin);
+  }
+  if (!pluginsMeta[plugin.command]) {
+    pluginsMeta[plugin.command] = {
+      name: plugin.command,
+      category: plugin.category || 'general',
+      description: plugin.description || '',
+      enabled: pluginStates[plugin.command] !== false,
+    };
+  }
+  if (!pluginUsageStats.has(plugin.command)) pluginUsageStats.set(plugin.command, 0);
+  ((globalThis as any)._pluginRegistry as any[]).push({
+    command: plugin.command,
+    category: plugin.category || 'general',
+    description: plugin.description || '',
+    aliases: plugin.aliases || [],
+  });
+}
+
 export async function loadPlugins(): Promise<void> {
   ensureDir();
   loadedPlugins.clear();
   (globalThis as any)._pluginRegistry = [];
+
+  // Access the command.js shim (CJS module) to drain registered cmd() commands
+  const requireRoot = createRequire(path.resolve(process.cwd(), 'package.json'));
+  let commandShim: { drainRegistry: () => Array<{ meta: any; handler: any }> } | null = null;
+  try {
+    commandShim = requireRoot('./command') as any;
+    // drain any stale registrations from a previous load
+    commandShim!.drainRegistry();
+  } catch {}
 
   const files = readdirSync(PLUGINS_DIR).filter(f => f.endsWith('.js'));
   if (files.length === 0) {
@@ -130,6 +220,19 @@ export async function loadPlugins(): Promise<void> {
       const mod = await import(url);
       const plugin: PluginDef = mod.default || mod;
 
+      // Check for cmd()-style registrations (new plugin format)
+      if (commandShim) {
+        const registrations = commandShim.drainRegistry();
+        if (registrations.length > 0) {
+          for (const { meta, handler } of registrations) {
+            registerCmdPlugin(meta, handler);
+            loaded++;
+          }
+          continue;
+        }
+      }
+
+      // Standard ES module plugin format (export default { command, handler })
       if (!plugin?.command || typeof plugin?.handler !== 'function') continue;
 
       loadedPlugins.set(plugin.command, plugin);

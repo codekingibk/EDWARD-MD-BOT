@@ -1,13 +1,13 @@
 const _prefixes = process.env.PREFIXES ? process.env.PREFIXES.split(',') : ['.', '!', '/'];
 const config = {
     // Bot Identity
-    botName: process.env.BOT_NAME || 'MEGA-MD',
-    botOwner: process.env.BOT_OWNER || 'Qasim Ali',
-    ownerNumber: process.env.OWNER_NUMBER || '923051391007',
-    author: process.env.AUTHOR || 'GlobalTechInfo',
-    packname: process.env.PACKNAME || 'MEGA-MD',
+    botName: process.env.BOT_NAME || 'EDWARD MD',
+    botOwner: process.env.BOT_OWNER || 'Edward',
+    ownerNumber: process.env.OWNER_NUMBER || '',
+    author: process.env.AUTHOR || 'EDWARD MD',
+    packname: process.env.PACKNAME || 'EDWARD MD',
     description: process.env.DESCRIPTION || 'High performance multi-device WhatsApp bot',
-    version: '6.0.0',
+    version: '3.0.0',
     // Bot Config
     prefixes: _prefixes,
     prefix: _prefixes[0],
@@ -52,4 +52,4 @@ const config = {
         'https://api-fgmods.ddns.net': 'fg-dylux'
     }
 };
-export default config;
+module.exports = config;
