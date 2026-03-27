@@ -2,41 +2,82 @@ import { logger } from './logger';
 
 const log = logger.child({ module: 'KeepAlive' });
 
-const INTERVAL_MS = 10 * 60 * 1000; // ping every 10 minutes
+// Ping every 4 minutes ±30s jitter so Replit never considers the process idle.
+// (Replit suspends free-tier apps after ~5 minutes without incoming traffic.)
+const BASE_INTERVAL_MS = 4 * 60 * 1000;
+const JITTER_MS = 30_000;
+
+function resolvePublicUrl(): string {
+  // 1. Explicit override
+  if (process.env['SELF_URL']) return process.env['SELF_URL'].replace(/\/$/, '');
+
+  // 2. Render deployment
+  if (process.env['RENDER_EXTERNAL_URL']) return process.env['RENDER_EXTERNAL_URL'].replace(/\/$/, '');
+
+  // 3. Replit dev/deployed domain — the API server is served at the root proxy path
+  const replitDomain = process.env['REPLIT_DEV_DOMAIN'] || process.env['REPLIT_DOMAINS'];
+  if (replitDomain) {
+    // api-server artifact is mounted under /api-server on the proxy
+    return `https://${replitDomain.split(',')[0].trim()}/api-server`;
+  }
+
+  // 4. Fallback to localhost (no external keep-alive, but keeps event loop alive)
+  return `http://localhost:${process.env['PORT'] ?? 8080}`;
+}
 
 export function startKeepAlive() {
-  const selfUrl = (
-    process.env['RENDER_EXTERNAL_URL'] ||
-    process.env['SELF_URL'] ||
-    `http://localhost:${process.env['PORT'] ?? 8080}`
-  ).replace(/\/$/, '');
+  const baseUrl = resolvePublicUrl();
+  const pingUrl = `${baseUrl}/healthz`;
+  const startedAt = Date.now();
 
-  const pingUrl = `${selfUrl}/health`;
+  log.info({ url: pingUrl, intervalMin: BASE_INTERVAL_MS / 60_000 }, 'KeepAlive started');
 
-  log.info({ url: pingUrl, intervalMin: 10 }, 'KeepAlive started');
+  let consecutiveFailures = 0;
 
   async function ping() {
     try {
       const start = Date.now();
-      const res = await fetch(pingUrl, { signal: AbortSignal.timeout(15000) });
+      const res = await fetch(pingUrl, {
+        signal: AbortSignal.timeout(20_000),
+        headers: { 'User-Agent': 'EDWARD-MD-KeepAlive/1.0' },
+      });
       const ms = Date.now() - start;
+      const uptimeMins = Math.floor((Date.now() - startedAt) / 60_000);
+
       if (res.ok) {
-        log.info({ ms }, 'KeepAlive ping OK');
+        consecutiveFailures = 0;
+        log.info({ ms, uptimeMins }, 'KeepAlive ping OK');
       } else {
-        log.warn({ status: res.status, ms }, 'KeepAlive ping non-200');
+        consecutiveFailures++;
+        log.warn({ status: res.status, ms, consecutiveFailures }, 'KeepAlive ping non-200');
       }
     } catch (err: any) {
-      log.warn({ err: err.message }, 'KeepAlive ping failed');
+      consecutiveFailures++;
+      log.warn({ err: err.message, consecutiveFailures }, 'KeepAlive ping failed');
+
+      // After 3 consecutive failures try localhost as fallback
+      if (consecutiveFailures >= 3) {
+        try {
+          await fetch(`http://localhost:${process.env['PORT'] ?? 8080}/healthz`, {
+            signal: AbortSignal.timeout(5_000),
+          });
+          log.info('KeepAlive localhost fallback OK');
+        } catch {}
+      }
     }
+
+    // Schedule next ping with jitter
+    scheduleNext();
   }
 
-  // First ping after 1 minute so the server is fully up
-  setTimeout(ping, 60_000);
+  function scheduleNext() {
+    const jitter = Math.floor(Math.random() * JITTER_MS * 2) - JITTER_MS;
+    const delay = Math.max(BASE_INTERVAL_MS + jitter, 60_000);
+    const t = setTimeout(ping, delay);
+    if (t.unref) t.unref();
+  }
 
-  const iv = setInterval(ping, INTERVAL_MS);
-
-  // Allow process to exit cleanly even if interval is running
-  if (iv.unref) iv.unref();
-
-  return iv;
+  // First ping after 90 seconds (server fully up)
+  const warmup = setTimeout(ping, 90_000);
+  if (warmup.unref) warmup.unref();
 }
