@@ -14,11 +14,10 @@ function resolvePublicUrl(): string {
   // 2. Render deployment
   if (process.env['RENDER_EXTERNAL_URL']) return process.env['RENDER_EXTERNAL_URL'].replace(/\/$/, '');
 
-  // 3. Replit dev/deployed domain — the API server is served at the root proxy path
+  // 3. Replit dev/deployed domain — the API server artifact is mounted at /api on the proxy
   const replitDomain = process.env['REPLIT_DEV_DOMAIN'] || process.env['REPLIT_DOMAINS'];
   if (replitDomain) {
-    // api-server artifact is mounted under /api-server on the proxy
-    return `https://${replitDomain.split(',')[0].trim()}/api-server`;
+    return `https://${replitDomain.split(',')[0].trim()}/api`;
   }
 
   // 4. Fallback to localhost (no external keep-alive, but keeps event loop alive)
@@ -77,7 +76,7 @@ export function startKeepAlive() {
     if (t.unref) t.unref();
   }
 
-  // First ping after 90 seconds (server fully up)
-  const warmup = setTimeout(ping, 90_000);
+  // First ping after 30 seconds (server fully up)
+  const warmup = setTimeout(ping, 30_000);
   if (warmup.unref) warmup.unref();
 }
