@@ -1,0 +1,175 @@
+( 🍁 ) ───ⒺⒹⓌⒶⓇⒹ ⓂⒹ
+─── REVOLUTIONARY AUTOMATION SYSTEM ───
+Next-generation bot with speed, flexibility, and absolute security has awakened.
+〢「 🅴🅳🆆🅰🆁🅳  🅼🅳 」
+࿇ Author : —EDWARD
+࿇ Type : ( Case─Plugins )
+࿇ League : Africa/Lagos
+┌─────────
+├──── ▢ ( ⚡ ) OWNER COMMANDS (25)
+├── ▢ Owner Only
+│── .addreply
+│── .anticall
+│── .antidelete
+│── .archivechat
+│── .autoreact
+│── .autoread
+│── .autoreply
+│── .autostatus
+│── .autotyping
+│── .broadcast
+│── .broadcastdm
+│── .clearchat
+│── .clearsession
+│── .cleartmp
+│── .cmdreact
+│── .delreply
+│── .joingroup
+│── .listcmd
+│── .listreplies
+│── .maintenance
+│── .mention
+│── .mode
+│── .pinchat
+│── .pmblocker
+│── .update
+└────
+┌─────────
+├──── ▢ ( 🛡️ ) ADMIN COMMANDS (15)
+├── ▢ Group Management
+│── .antibadword
+│── .antilink
+│── .antispam
+│── .ban
+│── .delete
+│── .demote
+│── .disappear
+│── .goodbye
+│── .hidetag
+│── .kick
+│── .mute
+│── .promote
+│── .unmute
+│── .warn
+│── .welcome
+└────
+┌─────────
+├──── ▢ ( 🤖 ) AI & FUN (14)
+├── ▢ Entertainment
+│── .diffusion
+│── .8ball
+│── .dare
+│── .fact
+│── .flirt
+│── .hack
+│── .hangman
+│── .joke
+│── .math
+│── .meme
+│── .tictactoe
+│── .trivia
+│── .truth
+│── .why
+└────
+┌─────────
+├──── ▢ ( 📥 ) DOWNLOAD (3)
+├── ▢ Media Downloader
+│── .facebook
+│── .tiktok
+│── .twitter
+└────
+┌─────────
+├──── ▢ ( 🔧 ) GENERAL (9)
+├── ▢ Basic Utilities
+│── .alive
+│── .echo
+│── .getpp
+│── .menu
+│── .pair
+│── .ping
+│── .pingweb
+│── .uptime
+│── .viewonce
+└────
+┌─────────
+├──── ▢ ( 👥 ) GROUP (7)
+├── ▢ Group Tools
+│── .compliment
+│── .groupinfo
+│── .insult
+│── .invitelink
+│── .poll
+│── .warnings
+│── .wasted
+└────
+┌─────────
+├──── ▢ ( ℹ️ ) INFO (9)
+├── ▢ Information
+│── .script
+│── .imdb
+│── .medicine
+│── .movie
+│── .news
+│── .owner
+│── .pokedex
+│── .weather
+│── .whois
+└────
+┌─────────
+├──── ▢ ( 🎵 ) MUSIC (3)
+├── ▢ Music Tools
+│── .lyrics
+│── .play
+│── .ytsearch
+└────
+┌─────────
+├──── ▢ ( 🔍 ) SEARCH (4)
+├── ▢ Search Engines
+│── .define
+│── .element
+│── .whoisip
+│── .wiki
+└────
+┌─────────
+├──── ▢ ( 🕵️ ) STALK (3)
+├── ▢ Stalking Tools
+│── .genshin
+│── .github
+│── .pinstalk
+└────
+┌─────────
+├──── ▢ ( 🖼️ ) STICKERS (1)
+├── ▢ Sticker Tools
+│── .gif
+└────
+┌─────────
+├──── ▢ ( 🛠️ ) TOOLS (6)
+├── ▢ Useful Tools
+│── .base64
+│── .flip
+│── .qrcode
+│── .tinyurl
+│── .translate
+│── .vnote
+└────
+┌─────────
+├──── ▢ ( 🧮 ) UTILITY (7)
+├── ▢ Advanced Utilities
+│── .calc
+│── .cipher
+│── .distance
+│── .dna
+│── .units
+│── .urldecode
+│── .wordcloud
+└────
+┌─────────
+├──── ▢ ( 📋 ) MENU & NOTES (3)
+├── ▢ Extra
+│── .animes
+│── .notes
+│── .privacy
+└────
+💡  Type .menu or .command to view full list
+📌  Owner & Admin commands require proper permission
+🍁  Edward MD  🍁
