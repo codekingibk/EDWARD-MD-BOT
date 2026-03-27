@@ -19,7 +19,7 @@ export function setNotifierConfig(ownerNumber: string, botName?: string) {
 function getOwnerJid(): string | null {
   if (!_ownerNumber) return null;
   const clean = _ownerNumber.replace(/[^0-9]/g, '');
-  if (!clean) return null;
+  if (!clean || clean.length < 10) return null;
   return `${clean}@s.whatsapp.net`;
 }
 

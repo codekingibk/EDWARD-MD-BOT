@@ -1,19 +1,16 @@
-'use strict';
-
-// ── EDWARD MD: cmd() compatibility shim ──────────────────────────────────────
-// New-style plugins call:  const { cmd } = require('../command')
-// This shim captures their registrations so our plugin loader can pick them up.
+// EDWARD MD: cmd() compatibility shim (ES module)
+// Plugins calling: const { cmd } = require('../command')
+// work in Node.js 24 via require(esm) support.
 
 const _pending = [];
 
-function cmd(meta, handler) {
+export function cmd(meta, handler) {
   if (typeof meta !== 'object' || typeof handler !== 'function') return;
   _pending.push({ meta, handler });
 }
 
-/** Drain and return all commands registered since the last drain. */
-function drainRegistry() {
+export function drainRegistry() {
   return _pending.splice(0);
 }
 
-module.exports = { cmd, commands: _pending, drainRegistry };
+export const commands = _pending;

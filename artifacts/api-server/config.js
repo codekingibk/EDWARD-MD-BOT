@@ -1,4 +1,5 @@
 const _prefixes = process.env.PREFIXES ? process.env.PREFIXES.split(',') : ['.', '!', '/'];
+
 const config = {
     // Bot Identity
     botName: process.env.BOT_NAME || 'EDWARD MD',
@@ -52,4 +53,13 @@ const config = {
         'https://api-fgmods.ddns.net': 'fg-dylux'
     }
 };
-module.exports = config;
+
+export default config;
+
+// Named exports so CJS plugins using require('../config').someKey work
+export const {
+    botName, botOwner, ownerNumber, author, packname, description, version,
+    prefixes, prefix, commandMode, timeZone, channelLink, updateZipUrl, ytChannel,
+    sessionId, pairingNumber, port, maxStoreMessages, tempCleanupInterval,
+    storeWriteInterval, giphyApiKey, removeBgKey, warnCount, APIs, APIKeys
+} = config;

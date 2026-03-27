@@ -1,12 +1,10 @@
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, writeFileSync, readFileSync } from 'fs';
 import { readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import { logger } from './logger';
 import { createRequire } from 'module';
 import { pathToFileURL } from 'url';
-
-// RequireFunction for loading CommonJS plugins that use require('../command')
-const _requireFromRoot = createRequire(path.resolve(process.cwd(), 'command.js'));
+import { Module } from 'module';
 
 const log = logger.child({ module: 'PluginLoader' });
 
@@ -192,6 +190,25 @@ function registerCmdPlugin(
   });
 }
 
+/** Detect if a plugin file uses CommonJS syntax */
+function isCjsPlugin(code: string): boolean {
+  return /\brequire\s*\(/.test(code) || /\bmodule\.exports\b/.test(code) || /\bexports\.\w/.test(code);
+}
+
+/**
+ * Load a CommonJS plugin using Node's internal Module._compile.
+ * This bypasses the "type":"module" detection entirely, giving the plugin
+ * proper CJS globals (require, module, exports, __filename, __dirname).
+ * In Node.js 24, require(esm) is supported, so plugins can still
+ * require('../command') which is now a proper ES module.
+ */
+function loadCjsPlugin(filePath: string, code: string): void {
+  const m = new (Module as any)(filePath, null);
+  m.filename = filePath;
+  m.paths = (Module as any)._nodeModulePaths(path.dirname(filePath));
+  (m as any)._compile(code, filePath);
+}
+
 export async function loadPlugins(): Promise<void> {
   ensureDir();
   loadedPlugins.clear();
@@ -216,6 +233,23 @@ export async function loadPlugins(): Promise<void> {
   for (const file of files) {
     try {
       const filePath = path.join(PLUGINS_DIR, file);
+      const code = readFileSync(filePath, 'utf8');
+
+      if (isCjsPlugin(code)) {
+        // Load as CommonJS using Module._compile (bypasses type:module detection)
+        loadCjsPlugin(filePath, code);
+
+        if (commandShim) {
+          const registrations = commandShim.drainRegistry();
+          for (const { meta, handler } of registrations) {
+            registerCmdPlugin(meta, handler);
+            loaded++;
+          }
+        }
+        continue;
+      }
+
+      // ESM plugin: load via dynamic import
       const url = pathToFileURL(filePath).href + `?t=${Date.now()}`;
       const mod = await import(url);
       const plugin: PluginDef = mod.default || mod;
