@@ -5,6 +5,7 @@ import { logger } from './logger';
 import { createRequire } from 'module';
 import { pathToFileURL } from 'url';
 import { Module } from 'module';
+import { getContentType, downloadMediaMessage } from '@whiskeysockets/baileys';
 
 const log = logger.child({ module: 'PluginLoader' });
 
@@ -112,13 +113,107 @@ export async function downloadAllPlugins(onProgress?: (msg: string) => void): Pr
   onProgress?.(`Plugin download complete: ${success}/${toDownload.length} successful`);
 }
 
-/** Convert a cmd()-style handler to our PluginDef handler format. */
+/**
+ * Find the inner message content after unwrapping all WhatsApp container layers
+ * (ephemeral, viewOnce, documentWithCaption, etc.)
+ */
+function getInnerMessage(message: any): any {
+  return (
+    message.message?.ephemeralMessage?.message ||
+    message.message?.viewOnceMessage?.message ||
+    message.message?.viewOnceMessageV2?.message?.viewOnceMessage?.message ||
+    message.message?.documentWithCaptionMessage?.message ||
+    message.message?.editedMessage?.message?.protocolMessage?.editedMessage ||
+    message.message
+  );
+}
+
+/**
+ * Find contextInfo (which holds the quoted message) from any message layer.
+ * Modern WhatsApp nests this inside ephemeral/viewOnce wrappers.
+ */
+function findContextInfo(message: any): any {
+  const inner = getInnerMessage(message);
+  if (!inner) return null;
+
+  // Check every known message type that can carry contextInfo
+  const candidates = [
+    inner.extendedTextMessage,
+    inner.imageMessage,
+    inner.videoMessage,
+    inner.stickerMessage,
+    inner.audioMessage,
+    inner.documentMessage,
+    inner.buttonsResponseMessage,
+    inner.listResponseMessage,
+  ];
+  for (const c of candidates) {
+    if (c?.contextInfo?.quotedMessage) return c.contextInfo;
+  }
+  return null;
+}
+
+/**
+ * Build a rich `quoted` object (similar to the smsg helper used in classic Baileys bots).
+ * Provides: mtype, mimetype, msg (raw content), sender, download(), text
+ */
+function buildQuotedObject(contextInfo: any, chatId: string, sock: any): any | null {
+  const quotedRaw = contextInfo.quotedMessage;
+  if (!quotedRaw) return null;
+
+  // Get the actual message type (imageMessage, videoMessage, stickerMessage, …)
+  const mtype: string = (getContentType(quotedRaw) as string) || Object.keys(quotedRaw)[0];
+  if (!mtype) return null;
+
+  const msgContent: any = quotedRaw[mtype] || {};
+  const mimetype: string = msgContent.mimetype || '';
+
+  // Build a minimal WAMessage so downloadMediaMessage can fetch the media
+  const fakeMsg = {
+    key: {
+      remoteJid: contextInfo.remoteJid || chatId,
+      fromMe: false,
+      id: contextInfo.stanzaId || `q-${Date.now()}`,
+      participant: contextInfo.participant,
+    },
+    message: quotedRaw,
+  };
+
+  const quoted: any = {
+    mtype,
+    mimetype,
+    msg: msgContent,
+    message: quotedRaw,
+    sender: contextInfo.participant || chatId,
+    key: fakeMsg.key,
+    id: contextInfo.stanzaId || '',
+    chat: contextInfo.remoteJid || chatId,
+    text: msgContent.text || msgContent.caption || msgContent.conversation || '',
+    download: async () => {
+      return downloadMediaMessage(fakeMsg as any, 'buffer', {}, {
+        reuploadRequest: sock.updateMediaMessage,
+      });
+    },
+  };
+
+  return quoted;
+}
+
 function wrapCmdHandler(
   handler: (conn: any, mek: any, m: any, helpers: any) => Promise<void>
 ): PluginDef['handler'] {
   return async (sock: any, message: any, args: string[], context: PluginContext) => {
     const { chatId, senderId, isGroup, isOwner, isAdmin, config } = context;
     const q = args.join(' ');
+
+    // Build the quoted message object — handles ephemeral, viewOnce, and other wrappers
+    const contextInfo = findContextInfo(message);
+    const quotedObj = contextInfo ? buildQuotedObject(contextInfo, chatId, sock) : null;
+
+    // Augment the raw Baileys message so plugins that access mek.quoted / mek.chat work
+    message.chat = chatId;
+    message.quoted = quotedObj;
+
     const reply = (text: string) =>
       sock.sendMessage(chatId, { text: String(text) }, { quoted: message }).catch(() => {});
     const react = (emoji: string) =>
@@ -128,20 +223,26 @@ function wrapCmdHandler(
       sender: senderId,
       chat: chatId,
       isGroup,
-      quoted: (message.message?.extendedTextMessage?.contextInfo?.quotedMessage)
-        ? { sender: message.message.extendedTextMessage.contextInfo.participant || senderId }
-        : null,
+      quoted: quotedObj,
       react: (emoji: string) =>
         sock.sendMessage(chatId, { react: { text: emoji, key: message.key } }).catch(() => {}),
       reply: (text: string) =>
         sock.sendMessage(chatId, { text: String(text) }, { quoted: message }).catch(() => {}),
     };
 
+    const inner = getInnerMessage(message);
+    const body =
+      inner?.conversation ||
+      inner?.extendedTextMessage?.text ||
+      inner?.imageMessage?.caption ||
+      inner?.videoMessage?.caption ||
+      inner?.documentMessage?.caption || '';
+
     const helpers = {
       from: chatId,
       q,
-      quoted: m.quoted,
-      body: (message.message?.conversation || message.message?.extendedTextMessage?.text || ''),
+      quoted: quotedObj,
+      body,
       isCmd: true,
       args,
       isGroup,
