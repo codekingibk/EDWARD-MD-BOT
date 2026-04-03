@@ -19,6 +19,40 @@ function resolveMenuMedia(url) {
     return null;
 }
 
+function buildMenuText(prefix, botName, tierBadge, userDisplay, lagosTime, totalCmds, mergedCategories, ordered, catConfig, config) {
+    let text = '';
+    text += `( 🍁 ) ───ⒺⒹⓌⒶⓇⒹ ⓂⒹ\n`;
+    text += `─── REVOLUTIONARY AUTOMATION SYSTEM ───\n`;
+    text += `Next-generation bot with speed, flexibility,\nand absolute security has awakened.\n`;
+    text += `〢「 🅴🅳🆆🅰🆁🅳  🅼🅳 」\n`;
+    text += `࿇ Bot    : ${botName}\n`;
+    text += `࿇ Server : ${tierBadge}\n`;
+    text += `࿇ Prefix : [ ${prefix} ]\n`;
+    text += `࿇ User   : ${userDisplay}\n`;
+    text += `࿇ Type   : ( Case─Plugins )\n`;
+    text += `࿇ League : Africa/Lagos\n`;
+    text += `࿇ Time   : ${lagosTime}\n`;
+    text += `࿇ Cmds   : ${totalCmds} commands\n`;
+
+    for (const cat of ordered) {
+        const cmds = [...mergedCategories[cat]].sort();
+        if (cmds.length === 0) continue;
+        const [emoji, label, desc] = catConfig[cat] || ['▸', cat.toUpperCase(), ''];
+        text += `┌─────────\n`;
+        text += `├──── ▢ ( ${emoji} ) ${label} (${cmds.length})\n`;
+        if (desc) text += `├── ▢ ${desc}\n`;
+        for (const c of cmds) text += `│── ${prefix}${c}\n`;
+        text += `└────\n`;
+    }
+
+    text += `💡  Type ${prefix}help  for command info\n`;
+    text += `📌  Owner & Admin commands require proper permission\n`;
+    if (config?.menuChannelName) text += `📢  Channel : ${config.menuChannelName}\n`;
+    if (config?.menuNewsletterId) text += `🔗  Newsletter : ${config.menuNewsletterId}\n`;
+    text += `🍁  ${botName}  🍁`;
+    return text;
+}
+
 export default {
     command: 'menu',
     aliases: ['help', 'cmds', 'commands', 'start'],
@@ -32,6 +66,7 @@ export default {
         const botName = config?.botName || 'EDWARD MD';
         const serverTier = String(config?.serverTier || 'free').toUpperCase();
         const tierBadge = serverTier === 'PREMIUM' ? '👑 PREMIUM' : '🆓 FREE';
+        const menuType = config?.menuType || 'image';
 
         const senderNum = (senderId || '').split('@')[0].split(':')[0];
         const userDisplay = senderNum ? `+${senderNum}` : 'User';
@@ -109,60 +144,91 @@ export default {
         ];
 
         const totalCmds = [...new Set(registry.map(p => p.command))].length;
-
-        let text = '';
-        text += `( 🍁 ) ───ⒺⒹⓌⒶⓇⒹ ⓂⒹ\n`;
-        text += `─── REVOLUTIONARY AUTOMATION SYSTEM ───\n`;
-        text += `Next-generation bot with speed, flexibility,\nand absolute security has awakened.\n`;
-        text += `〢「 🅴🅳🆆🅰🆁🅳  🅼🅳 」\n`;
-        text += `࿇ Bot    : ${botName}\n`;
-        text += `࿇ Server : ${tierBadge}\n`;
-        text += `࿇ Prefix : [ ${prefix} ]\n`;
-        text += `࿇ User   : ${userDisplay}\n`;
-        text += `࿇ Type   : ( Case─Plugins )\n`;
-        text += `࿇ League : Africa/Lagos\n`;
-        text += `࿇ Time   : ${lagosTime}\n`;
-        text += `࿇ Cmds   : ${totalCmds} commands\n`;
-
         const allKeys = Object.keys(mergedCategories);
         const ordered = [
             ...ORDER.filter(k => allKeys.includes(k)),
             ...allKeys.filter(k => !ORDER.includes(k)).sort(),
         ];
 
-        for (const cat of ordered) {
-            const cmds = [...mergedCategories[cat]].sort();
-            if (cmds.length === 0) continue;
-            const [emoji, label, desc] = catConfig[cat] || ['▸', cat.toUpperCase(), ''];
-            text += `┌─────────\n`;
-            text += `├──── ▢ ( ${emoji} ) ${label} (${cmds.length})\n`;
-            if (desc) text += `├── ▢ ${desc}\n`;
-            for (const c of cmds) text += `│── ${prefix}${c}\n`;
-            text += `└────\n`;
-        }
+        const text = buildMenuText(prefix, botName, tierBadge, userDisplay, lagosTime, totalCmds, mergedCategories, ordered, catConfig, config);
 
-        text += `💡  Type ${prefix}help  for command info\n`;
-        text += `📌  Owner & Admin commands require proper permission\n`;
-        if (config?.menuChannelName) text += `📢  Channel : ${config.menuChannelName}\n`;
-        if (config?.menuNewsletterId) text += `🔗  Newsletter : ${config.menuNewsletterId}\n`;
-        text += `🍁  ${botName}  🍁`;
-
-        // ── Send menu (image + text, or plain text) ───────────────
-        const imageMedia = resolveMenuMedia(config?.menuImageUrl);
-        if (imageMedia) {
+        // ── Button / List Menu ─────────────────────────────────
+        if (menuType === 'buttons') {
             try {
-                const imageField = imageMedia.type === 'file'
-                    ? { image: imageMedia.buffer }
-                    : { image: { url: imageMedia.url } };
-                await sock.sendMessage(chatId, { ...imageField, caption: text }, { quoted: message });
+                const sections = [];
+                for (const cat of ordered) {
+                    const cmds = [...mergedCategories[cat]].sort();
+                    if (cmds.length === 0) continue;
+                    const [, label] = catConfig[cat] || ['▸', cat.toUpperCase()];
+                    const rows = cmds.slice(0, 10).map(c => ({
+                        title: `${prefix}${c}`,
+                        rowId: `cmd_${c}`,
+                        description: '',
+                    }));
+                    if (rows.length > 0) sections.push({ title: label, rows });
+                }
+
+                const headerText = `🍁 ${botName} — ${tierBadge}\n${prefix} prefix · ${totalCmds} commands`;
+
+                if (sections.length > 0) {
+                    await sock.sendMessage(chatId, {
+                        text: headerText,
+                        sections: sections.slice(0, 10),
+                        buttonText: '📋 Browse Commands',
+                        footer: `${botName} • Africa/Lagos • ${lagosTime}`,
+                        listType: 1,
+                    }, { quoted: message });
+                } else {
+                    await sock.sendMessage(chatId, { text }, { quoted: message });
+                }
             } catch {
                 await sock.sendMessage(chatId, { text }, { quoted: message });
             }
-        } else {
-            await sock.sendMessage(chatId, { text }, { quoted: message });
+
+            // Audio if configured
+            const audioMedia = resolveMenuMedia(config?.menuAudioUrl);
+            if (audioMedia) {
+                try {
+                    const audioField = audioMedia.type === 'file'
+                        ? { audio: audioMedia.buffer, mimetype: 'audio/mpeg' }
+                        : { audio: { url: audioMedia.url }, mimetype: 'audio/mpeg' };
+                    await sock.sendMessage(chatId, { ...audioField, ptt: false }, { quoted: message });
+                } catch {}
+            }
+            return;
         }
 
-        // ── Send audio separately if configured ───────────────────
+        // ── Image Menu ─────────────────────────────────────────
+        if (menuType === 'image' || menuType === undefined || menuType === null) {
+            const imageMedia = resolveMenuMedia(config?.menuImageUrl);
+            if (imageMedia) {
+                try {
+                    const imageField = imageMedia.type === 'file'
+                        ? { image: imageMedia.buffer }
+                        : { image: { url: imageMedia.url } };
+                    await sock.sendMessage(chatId, { ...imageField, caption: text }, { quoted: message });
+                } catch {
+                    await sock.sendMessage(chatId, { text }, { quoted: message });
+                }
+            } else {
+                await sock.sendMessage(chatId, { text }, { quoted: message });
+            }
+
+            const audioMedia = resolveMenuMedia(config?.menuAudioUrl);
+            if (audioMedia) {
+                try {
+                    const audioField = audioMedia.type === 'file'
+                        ? { audio: audioMedia.buffer, mimetype: 'audio/mpeg' }
+                        : { audio: { url: audioMedia.url }, mimetype: 'audio/mpeg' };
+                    await sock.sendMessage(chatId, { ...audioField, ptt: false }, { quoted: message });
+                } catch {}
+            }
+            return;
+        }
+
+        // ── Text Menu (default fallback) ───────────────────────
+        await sock.sendMessage(chatId, { text }, { quoted: message });
+
         const audioMedia = resolveMenuMedia(config?.menuAudioUrl);
         if (audioMedia) {
             try {

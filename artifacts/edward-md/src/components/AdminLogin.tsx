@@ -103,7 +103,7 @@ export default function AdminLogin({ onLogin }: Props) {
         </form>
 
         <p className="text-center text-xs text-text-muted mt-6">
-          <a href="../" className="text-accent-orange hover:underline">← Back to Dashboard</a>
+          <a href="/" className="text-accent-orange hover:underline">← Back to Dashboard</a>
         </p>
       </div>
     </div>

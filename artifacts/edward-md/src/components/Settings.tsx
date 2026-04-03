@@ -4,8 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Settings as SettingsIcon, Bot, Hash, Phone, Globe, Eye, MessageSquare, Shield,
   Bell, Mic, PhoneOff, Link2, UserX, Sparkles, Save, RotateCcw, Lock, Palette,
-  Radio, Heart, Send, Users, Crown, Key, Upload, Image, Volume2, Tv2, Copy,
-  CheckCircle, AlertCircle, Loader2, Star, Zap, RefreshCw
+  Radio, Heart, Send, Users, Crown, Key, Upload, Image, Volume2, Tv2,
+  CheckCircle, AlertCircle, Loader2, Star, Zap, RefreshCw, List, Type, LayoutList
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -45,23 +45,13 @@ interface PremiumInfo {
 export default function Settings() {
   const { botConfig, updateConfig } = useApp();
 
-  // Premium info
   const [premiumInfo, setPremiumInfo] = useState<PremiumInfo | null>(null);
   const [loadingPremium, setLoadingPremium] = useState(false);
 
-  // Key activation
   const [activateKey, setActivateKey] = useState('');
   const [activating, setActivating] = useState(false);
   const [activateStatus, setActivateStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
-  // Admin key generation
-  const [adminEmail, setAdminEmail] = useState('');
-  const [generating, setGenerating] = useState(false);
-  const [generatedKey, setGeneratedKey] = useState<string | null>(null);
-  const [generateStatus, setGenerateStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
-  const [keyCopied, setKeyCopied] = useState(false);
-
-  // Menu uploads
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const [imageStatus, setImageStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
@@ -107,36 +97,6 @@ export default function Settings() {
     setActivating(false);
   }
 
-  async function handleGenerateKey() {
-    if (!adminEmail.trim()) return;
-    setGenerating(true);
-    setGenerateStatus(null);
-    setGeneratedKey(null);
-    try {
-      const r = await fetch(`${API}/api/premium/generate`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminEmail: adminEmail.trim() }),
-      });
-      const data = await r.json();
-      if (data.ok) {
-        setGeneratedKey(data.key);
-        setGenerateStatus({ type: 'success', msg: 'Key generated successfully!' });
-        fetchPremiumInfo();
-      } else {
-        setGenerateStatus({ type: 'error', msg: data.error });
-      }
-    } catch { setGenerateStatus({ type: 'error', msg: 'Network error' }); }
-    setGenerating(false);
-  }
-
-  function copyKey() {
-    if (generatedKey) {
-      navigator.clipboard.writeText(generatedKey);
-      setKeyCopied(true);
-      setTimeout(() => setKeyCopied(false), 2000);
-    }
-  }
-
   async function handleFileUpload(file: File, field: 'menuImageUrl' | 'menuAudioUrl') {
     const isImage = field === 'menuImageUrl';
     if (isImage) { setUploadingImage(true); setImageStatus(null); }
@@ -156,15 +116,14 @@ export default function Settings() {
       });
       const data = await r.json();
       if (data.ok) {
-        const fullUrl = `${API}${data.url}`;
-        updateConfig(field, fullUrl);
+        updateConfig(field, data.url);
         if (isImage) setImageStatus({ type: 'success', msg: `Image uploaded ✓` });
         else setAudioStatus({ type: 'success', msg: `Audio uploaded ✓` });
       } else {
         if (isImage) setImageStatus({ type: 'error', msg: data.error });
         else setAudioStatus({ type: 'error', msg: data.error });
       }
-    } catch (e: any) {
+    } catch {
       if (isImage) setImageStatus({ type: 'error', msg: 'Upload failed' });
       else setAudioStatus({ type: 'error', msg: 'Upload failed' });
     }
@@ -173,6 +132,12 @@ export default function Settings() {
   }
 
   const isPremium = (premiumInfo?.serverTier || botConfig.serverTier) === 'premium';
+
+  const menuTypeOptions: { value: BotConfig['menuType']; label: string; desc: string; icon: any }[] = [
+    { value: 'text', label: 'Text Only', desc: 'Plain text menu, no media', icon: Type },
+    { value: 'image', label: 'Image + Text', desc: 'Menu with image header', icon: Image },
+    { value: 'buttons', label: 'Button List', desc: 'Interactive list menu', icon: LayoutList },
+  ];
 
   const toggles: { key: keyof BotConfig; label: string; description: string; icon: any }[] = [
     { key: 'publicMode', label: 'Public Mode', description: 'Allow anyone to use the bot', icon: Globe },
@@ -254,9 +219,9 @@ export default function Settings() {
         <h3 className="text-sm font-semibold text-text-primary mb-4 flex items-center gap-2"><Palette className="w-4 h-4 text-accent-purple" />Bot Identity</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
-            { key: 'botName', label: 'Bot Name', icon: Bot, type: 'text', placeholder: 'EDWARD MD' },
+            { key: 'botName', label: 'Bot Name', icon: Bot, type: 'text', placeholder: 'e.g. EDWARD MD' },
             { key: 'prefix', label: 'Command Prefix', icon: Hash, type: 'text', placeholder: '.', maxLength: 3 },
-            { key: 'ownerNumber', label: 'Owner Number', icon: Phone, type: 'tel', placeholder: '+1234567890' },
+            { key: 'ownerNumber', label: 'Owner Number', icon: Phone, type: 'tel', placeholder: 'e.g. 2348012345678' },
           ].map(({ key, label, icon: Icon, type, placeholder, maxLength }) => (
             <div key={key}>
               <label className="text-xs font-medium text-text-secondary mb-1.5 block">{label}</label>
@@ -288,35 +253,61 @@ export default function Settings() {
 
       {/* ── Menu Customization ─────────────────────────────────── */}
       <div className="glass rounded-2xl p-6">
-        <h3 className="text-sm font-semibold text-text-primary mb-4 flex items-center gap-2"><Image className="w-4 h-4 text-accent-cyan" />Menu Customization</h3>
+        <h3 className="text-sm font-semibold text-text-primary mb-4 flex items-center gap-2"><List className="w-4 h-4 text-accent-cyan" />Menu Customization</h3>
         <div className="space-y-5">
 
-          {/* Image Upload */}
+          {/* Menu Type */}
           <div>
-            <label className="text-xs font-medium text-text-secondary mb-2 block flex items-center gap-1.5"><Image className="w-3.5 h-3.5" />Menu Image</label>
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <Upload className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                <input
-                  type="text"
-                  value={botConfig.menuImageUrl || ''}
-                  onChange={e => updateConfig('menuImageUrl', e.target.value)}
-                  placeholder="Paste URL or upload a file →"
-                  className="w-full bg-bg-input border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-wa-green/50 transition-all"
-                />
-              </div>
-              <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, 'menuImageUrl'); }} />
-              <button onClick={() => imageInputRef.current?.click()} disabled={uploadingImage} className="px-4 py-2 bg-accent-cyan/10 border border-accent-cyan/20 text-accent-cyan text-xs font-medium rounded-xl hover:bg-accent-cyan/20 disabled:opacity-50 transition-colors flex items-center gap-1.5">
-                {uploadingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}Upload
-              </button>
+            <label className="text-xs font-medium text-text-secondary mb-2.5 block">Menu Style</label>
+            <div className="grid grid-cols-3 gap-2">
+              {menuTypeOptions.map(opt => {
+                const Icon = opt.icon;
+                const isSelected = (botConfig.menuType || 'image') === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => updateConfig('menuType', opt.value)}
+                    className={`flex flex-col items-center gap-2 p-3 rounded-xl border text-center transition-all ${isSelected ? 'border-wa-green/50 bg-wa-green/10 text-wa-green' : 'border-border bg-bg-input text-text-muted hover:border-border/80 hover:text-text-primary'}`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <div>
+                      <p className="text-xs font-medium">{opt.label}</p>
+                      <p className="text-[10px] opacity-70">{opt.desc}</p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-            {botConfig.menuImageUrl && (
-              <div className="mt-2 rounded-xl overflow-hidden border border-border w-24 h-16">
-                <img src={botConfig.menuImageUrl} alt="Menu preview" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-              </div>
-            )}
-            {imageStatus && <StatusMessage type={imageStatus.type} message={imageStatus.msg} />}
           </div>
+
+          {/* Image Upload — shown for image mode */}
+          {(botConfig.menuType === 'image' || botConfig.menuType === 'buttons' || !botConfig.menuType) && (
+            <div>
+              <label className="text-xs font-medium text-text-secondary mb-2 block flex items-center gap-1.5"><Image className="w-3.5 h-3.5" />Menu Image</label>
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <Upload className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                  <input
+                    type="text"
+                    value={botConfig.menuImageUrl || ''}
+                    onChange={e => updateConfig('menuImageUrl', e.target.value)}
+                    placeholder="Paste image URL"
+                    className="w-full bg-bg-input border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-wa-green/50 transition-all"
+                  />
+                </div>
+                <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, 'menuImageUrl'); e.target.value = ''; }} />
+                <button onClick={() => imageInputRef.current?.click()} disabled={uploadingImage} className="px-4 py-2 bg-accent-cyan/10 border border-accent-cyan/20 text-accent-cyan text-xs font-medium rounded-xl hover:bg-accent-cyan/20 disabled:opacity-50 transition-colors flex items-center gap-1.5">
+                  {uploadingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}Upload
+                </button>
+              </div>
+              {botConfig.menuImageUrl && (
+                <div className="mt-2 rounded-xl overflow-hidden border border-border w-24 h-16">
+                  <img src={botConfig.menuImageUrl.startsWith('/api/') ? `${API}${botConfig.menuImageUrl}` : botConfig.menuImageUrl} alt="Menu preview" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                </div>
+              )}
+              {imageStatus && <StatusMessage type={imageStatus.type} message={imageStatus.msg} />}
+            </div>
+          )}
 
           {/* Audio Upload */}
           <div>
@@ -328,11 +319,11 @@ export default function Settings() {
                   type="text"
                   value={botConfig.menuAudioUrl || ''}
                   onChange={e => updateConfig('menuAudioUrl', e.target.value)}
-                  placeholder="Paste audio URL or upload →"
+                  placeholder="Paste audio URL"
                   className="w-full bg-bg-input border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-wa-green/50 transition-all"
                 />
               </div>
-              <input ref={audioInputRef} type="file" accept="audio/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, 'menuAudioUrl'); }} />
+              <input ref={audioInputRef} type="file" accept="audio/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, 'menuAudioUrl'); e.target.value = ''; }} />
               <button onClick={() => audioInputRef.current?.click()} disabled={uploadingAudio} className="px-4 py-2 bg-accent-purple/10 border border-accent-purple/20 text-accent-purple text-xs font-medium rounded-xl hover:bg-accent-purple/20 disabled:opacity-50 transition-colors flex items-center gap-1.5">
                 {uploadingAudio ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}Upload
               </button>
@@ -374,45 +365,6 @@ export default function Settings() {
         <h3 className="text-sm font-semibold text-text-primary mb-2 flex items-center gap-2"><Bell className="w-4 h-4 text-accent-orange" />Features & Behavior</h3>
         <div className="divide-y divide-border">
           {toggles.map(t => <ToggleSwitch key={t.key} enabled={!!botConfig[t.key]} onToggle={() => updateConfig(t.key, !botConfig[t.key])} label={t.label} description={t.description} icon={t.icon} />)}
-        </div>
-      </div>
-
-      {/* ── Admin Panel ─────────────────────────────────────────── */}
-      <div className="glass rounded-2xl p-6 border border-accent-orange/20">
-        <h3 className="text-sm font-semibold text-accent-orange mb-4 flex items-center gap-2"><Crown className="w-4 h-4" />Admin Panel — Premium Key Generator</h3>
-        <p className="text-xs text-text-muted mb-4">Only the configured admin email can generate premium keys. Share generated keys with users to upgrade their servers.</p>
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs font-medium text-text-secondary mb-1.5 block">Admin Email</label>
-            <input
-              type="email"
-              value={adminEmail}
-              onChange={e => setAdminEmail(e.target.value)}
-              placeholder="gboyegaibk@gmail.com"
-              className="w-full bg-bg-input border border-border rounded-xl py-2.5 px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-orange/50 transition-all"
-            />
-          </div>
-          <button
-            onClick={handleGenerateKey}
-            disabled={generating || !adminEmail.trim()}
-            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-accent-orange to-accent-pink text-white text-xs font-semibold rounded-xl hover:opacity-90 disabled:opacity-50 transition-all"
-          >
-            {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />}Generate Premium Key
-          </button>
-
-          {generateStatus && <StatusMessage type={generateStatus.type} message={generateStatus.msg} />}
-
-          {generatedKey && (
-            <div className="mt-3 p-3 bg-bg-input border border-accent-orange/20 rounded-xl">
-              <p className="text-xs text-text-muted mb-1.5">Generated key — share this with the user:</p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 text-sm font-mono text-accent-orange font-bold tracking-wide">{generatedKey}</code>
-                <button onClick={copyKey} className={`p-2 rounded-lg transition-colors ${keyCopied ? 'bg-wa-green/20 text-wa-green' : 'bg-bg-card hover:bg-border text-text-muted'}`}>
-                  {keyCopied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 

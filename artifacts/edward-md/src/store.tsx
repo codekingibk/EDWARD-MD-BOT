@@ -57,6 +57,7 @@ export interface BotConfig {
   menuAudioUrl: string;
   menuChannelName: string;
   menuNewsletterId: string;
+  menuType: 'text' | 'image' | 'buttons';
 }
 
 export interface LogEntry {
@@ -106,8 +107,9 @@ const defaultConfig: BotConfig = {
   antiCall: true, antiSpam: true, antiLink: false, welcomeMessage: true,
   goodbyeMessage: true, antiDelete: true, antiViewOnce: true, autoReact: false,
   statusSeen: true, statusReply: false, selfMode: false, alwaysOnline: true,
-  serverTier: 'free', adminEmail: 'gboyegaibk@gmail.com',
+  serverTier: 'free', adminEmail: '',
   menuImageUrl: '', menuAudioUrl: '', menuChannelName: '', menuNewsletterId: '',
+  menuType: 'image',
 };
 
 const AppContext = createContext<AppState | null>(null);

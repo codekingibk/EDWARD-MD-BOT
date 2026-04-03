@@ -5,7 +5,7 @@ import crypto from 'crypto';
 
 const router: IRouter = Router();
 
-const DATA_DIR = path.join(process.cwd(), 'data');
+const DATA_DIR = path.join(process.env['STORAGE_DIR'] || process.cwd(), 'data');
 mkdirSync(DATA_DIR, { recursive: true });
 
 const SERVERS_FILE = path.join(DATA_DIR, 'servers.json');

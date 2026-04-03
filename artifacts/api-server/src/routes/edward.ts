@@ -10,9 +10,10 @@ import path from 'path';
 import crypto from 'crypto';
 
 // ── Premium key storage ───────────────────────────────────────────────────────
-const DATA_DIR = path.join(process.cwd(), 'data');
+const STORAGE_BASE = process.env['STORAGE_DIR'] || process.cwd();
+const DATA_DIR = path.join(STORAGE_BASE, 'data');
 const KEYS_FILE = path.join(DATA_DIR, 'premium-keys.json');
-const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
+const UPLOADS_DIR = path.join(STORAGE_BASE, 'uploads');
 mkdirSync(DATA_DIR, { recursive: true });
 mkdirSync(UPLOADS_DIR, { recursive: true });
 
@@ -54,11 +55,12 @@ let botConfig: Record<string, any> = {
   autoRecording: false, version: '2.0.0',
   // Server & Customization
   serverTier: _serverTier,
-  adminEmail: 'gboyegaibk@gmail.com',
+  adminEmail: '',
   menuImageUrl: '',
   menuAudioUrl: '',
   menuChannelName: '',
   menuNewsletterId: '',
+  menuType: 'image',
 };
 
 router.get('/plugins', (_req, res) => {
