@@ -24,3 +24,9 @@ expertMode = true
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[userenv]
+
+[userenv.shared]
+MONGODB_URI = "mongodb+srv://gboyegaibk:Oyinlola%40007@edwardbotplatform.o2ltmpx.mongodb.net/?appName=Edwardbotplatform"
+BOT_WEBSITE = "https://edward-md.replit.app"

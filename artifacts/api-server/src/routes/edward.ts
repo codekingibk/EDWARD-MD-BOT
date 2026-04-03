@@ -4,6 +4,7 @@ import { logger } from "../lib/logger";
 import { getWhatsAppManager } from "../lib/whatsapp";
 import { getAllPluginsMeta, setPluginState, downloadAllPlugins, loadPlugins, getPluginUsageStats } from "../lib/plugins";
 import { notifySettingsUpdated, notifyPluginToggled, notifyPluginsReloaded } from "../lib/notifier";
+import { getAllServers, getUserCount, getServerInfo, isConnected as isDbConnected } from "../lib/database";
 import os from 'os';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import path from 'path';
@@ -374,6 +375,83 @@ router.get('/uploads/:filename', (req, res) => {
   const filePath = path.join(UPLOADS_DIR, safeFilename);
   if (!existsSync(filePath)) { res.status(404).json({ error: 'Not found' }); return; }
   res.sendFile(filePath);
+});
+
+// ── Server Capacity ───────────────────────────────────────────────────────────
+
+router.get('/servers', async (_req, res) => {
+  try {
+    if (!isDbConnected()) {
+      // Return a default in-memory server record when DB is not connected
+      const usedMB = Math.round(process.memoryUsage().rss / 1024 / 1024);
+      return res.json({
+        ok: true,
+        dbConnected: false,
+        servers: [{
+          serverId: 'main',
+          name: 'EDWARD MD Main Server',
+          tier: _serverTier,
+          maxUsers: 500,
+          maxStorageMB: 500,
+          usedStorageMB: usedMB,
+          userCount: 0,
+          isActive: true,
+        }],
+      });
+    }
+
+    const servers = await getAllServers();
+    const result = await Promise.all(servers.map(async (s) => {
+      const userCount = await getUserCount(s.serverId);
+      return {
+        serverId: s.serverId,
+        name: s.name,
+        tier: s.tier,
+        maxUsers: s.maxUsers,
+        maxStorageMB: s.maxStorageMB,
+        usedStorageMB: s.usedStorageMB,
+        userCount,
+        isActive: s.isActive,
+        isFull: userCount >= s.maxUsers || s.usedStorageMB >= s.maxStorageMB,
+      };
+    }));
+
+    // Premium servers first
+    result.sort((a, b) => (b.tier === 'premium' ? 1 : 0) - (a.tier === 'premium' ? 1 : 0));
+
+    res.json({ ok: true, dbConnected: true, servers: result });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.get('/servers/:id/stats', async (req, res) => {
+  try {
+    const serverId = req.params.id;
+    if (!isDbConnected()) {
+      return res.json({ ok: true, dbConnected: false, serverId, userCount: 0 });
+    }
+    const [server, userCount] = await Promise.all([
+      getServerInfo(serverId),
+      getUserCount(serverId),
+    ]);
+    if (!server) { res.status(404).json({ ok: false, error: 'Server not found' }); return; }
+    res.json({
+      ok: true,
+      dbConnected: true,
+      serverId: server.serverId,
+      name: server.name,
+      tier: server.tier,
+      maxUsers: server.maxUsers,
+      maxStorageMB: server.maxStorageMB,
+      usedStorageMB: server.usedStorageMB,
+      userCount,
+      spaceFreePercent: Math.round(((server.maxStorageMB - server.usedStorageMB) / server.maxStorageMB) * 100),
+      userFreePercent: Math.round(((server.maxUsers - userCount) / server.maxUsers) * 100),
+    });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 export default router;

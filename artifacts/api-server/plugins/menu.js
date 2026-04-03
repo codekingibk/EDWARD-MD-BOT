@@ -4,22 +4,21 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
+const WEBSITE = process.env['BOT_WEBSITE'] || 'https://edward-md.replit.app';
 
 function resolveMenuMedia(url) {
     if (!url) return null;
-    // Relative API path — read from disk directly (Baileys can't reach the dev proxy URL)
     if (url.startsWith('/api/uploads/')) {
         const filename = url.replace('/api/uploads/', '');
         const filepath = path.join(UPLOADS_DIR, filename);
         if (existsSync(filepath)) return { type: 'file', buffer: readFileSync(filepath) };
         return null;
     }
-    // External/absolute URL — let Baileys fetch it
     if (/^https?:\/\//.test(url)) return { type: 'url', url };
     return null;
 }
 
-function buildMenuText(prefix, botName, tierBadge, userDisplay, lagosTime, totalCmds, mergedCategories, ordered, catConfig, config) {
+function buildMenuText(prefix, botName, tierBadge, userDisplay, lagosTime, totalCmds, mergedCategories, ordered, catConfig, config, serverStats) {
     let text = '';
     text += `( 🍁 ) ───ⒺⒹⓌⒶⓇⒹ ⓂⒹ\n`;
     text += `─── REVOLUTIONARY AUTOMATION SYSTEM ───\n`;
@@ -33,6 +32,13 @@ function buildMenuText(prefix, botName, tierBadge, userDisplay, lagosTime, total
     text += `࿇ League : Africa/Lagos\n`;
     text += `࿇ Time   : ${lagosTime}\n`;
     text += `࿇ Cmds   : ${totalCmds} commands\n`;
+
+    if (serverStats) {
+        const { userCount, maxUsers, usedMB, maxMB, tier } = serverStats;
+        const spaceLeft = maxMB - usedMB;
+        const tierIcon = tier === 'premium' ? '👑' : '🆓';
+        text += `${tierIcon} Server : ${userCount}/${maxUsers} users | ${spaceLeft}MB free\n`;
+    }
 
     for (const cat of ordered) {
         const cmds = [...mergedCategories[cat]].sort();
@@ -49,8 +55,33 @@ function buildMenuText(prefix, botName, tierBadge, userDisplay, lagosTime, total
     text += `📌  Owner & Admin commands require proper permission\n`;
     if (config?.menuChannelName) text += `📢  Channel : ${config.menuChannelName}\n`;
     if (config?.menuNewsletterId) text += `🔗  Newsletter : ${config.menuNewsletterId}\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `🚀 *Get your own FREE bot!*\n`;
+    text += `👉 ${WEBSITE}\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
     text += `🍁  ${botName}  🍁`;
     return text;
+}
+
+async function fetchServerStats() {
+    try {
+        const helpers = globalThis._dbHelpers;
+        if (!helpers || !helpers.isDbConnected()) return null;
+        const [server, userCount] = await Promise.all([
+            helpers.getServerInfo('main'),
+            helpers.getUserCount('main'),
+        ]);
+        if (!server) return null;
+        return {
+            userCount,
+            maxUsers: server.maxUsers,
+            usedMB: server.usedStorageMB,
+            maxMB: server.maxStorageMB,
+            tier: server.tier,
+        };
+    } catch {
+        return null;
+    }
 }
 
 export default {
@@ -150,7 +181,10 @@ export default {
             ...allKeys.filter(k => !ORDER.includes(k)).sort(),
         ];
 
-        const text = buildMenuText(prefix, botName, tierBadge, userDisplay, lagosTime, totalCmds, mergedCategories, ordered, catConfig, config);
+        const serverStats = await fetchServerStats();
+        const text = buildMenuText(prefix, botName, tierBadge, userDisplay, lagosTime, totalCmds, mergedCategories, ordered, catConfig, config, serverStats);
+
+        const advertFooter = `🚀 Get your own FREE bot → ${WEBSITE}`;
 
         // ── Button / List Menu ─────────────────────────────────
         if (menuType === 'buttons') {
@@ -159,33 +193,35 @@ export default {
                 for (const cat of ordered) {
                     const cmds = [...mergedCategories[cat]].sort();
                     if (cmds.length === 0) continue;
-                    const [, label] = catConfig[cat] || ['▸', cat.toUpperCase()];
+                    const [emoji, label] = catConfig[cat] || ['▸', cat.toUpperCase()];
                     const rows = cmds.slice(0, 10).map(c => ({
                         title: `${prefix}${c}`,
                         rowId: `cmd_${c}`,
-                        description: '',
+                        description: `${emoji} ${label}`,
                     }));
-                    if (rows.length > 0) sections.push({ title: label, rows });
+                    if (rows.length > 0) sections.push({ title: `${emoji} ${label}`, rows });
                 }
 
-                const headerText = `🍁 ${botName} — ${tierBadge}\n${prefix} prefix · ${totalCmds} commands`;
+                const listTitle = `🍁 ${botName}`;
+                const listBody = `${tierBadge}  |  ${prefix} prefix  |  ${totalCmds} commands\n\n${advertFooter}`;
 
                 if (sections.length > 0) {
                     await sock.sendMessage(chatId, {
-                        text: headerText,
-                        sections: sections.slice(0, 10),
+                        text: listBody,
+                        title: listTitle,
                         buttonText: '📋 Browse Commands',
-                        footer: `${botName} • Africa/Lagos • ${lagosTime}`,
+                        footer: `${botName} • Africa/Lagos`,
+                        sections: sections.slice(0, 10),
                         listType: 1,
                     }, { quoted: message });
                 } else {
                     await sock.sendMessage(chatId, { text }, { quoted: message });
                 }
             } catch {
+                // Fallback to image/text if list message is unsupported
                 await sock.sendMessage(chatId, { text }, { quoted: message });
             }
 
-            // Audio if configured
             const audioMedia = resolveMenuMedia(config?.menuAudioUrl);
             if (audioMedia) {
                 try {

@@ -1,6 +1,7 @@
 import type { WASocket, BaileysEventMap } from '@whiskeysockets/baileys';
 import { logger } from './logger';
 import { getPlugin, getPluginStates, incrementPluginUsage } from './plugins';
+import { upsertUser } from './database';
 
 let _store: any = null;
 async function getStore() {
@@ -78,6 +79,8 @@ export async function handleMessage(
 
       if (!fromMe) {
         onStats({ messagesReceived: 1 });
+        // Persist user to MongoDB (non-blocking)
+        upsertUser(senderId, undefined, 'main').catch(() => {});
       }
 
       // Sync bot mode from store (set via .mode command on WhatsApp)

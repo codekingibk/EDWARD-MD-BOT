@@ -6,6 +6,7 @@ import { getWhatsAppManager } from "./lib/whatsapp";
 import { setIo } from "./routes/edward";
 import { downloadAllPlugins, loadPlugins } from "./lib/plugins";
 import { startKeepAlive } from "./lib/keepalive";
+import { connectDatabase, getUserCount, getServerInfo, isConnected as isDbConnected } from "./lib/database";
 
 // ── Crash guards — log and continue instead of dying ──────────────────────────
 process.on('uncaughtException', (err) => {
@@ -62,6 +63,18 @@ io.on("connection", (socket) => {
 });
 
 startKeepAlive();
+
+// Connect to MongoDB (non-blocking — app runs fine without it)
+connectDatabase().then((ok) => {
+  if (ok) {
+    logger.info('Database ready — users will be persisted across restarts');
+    io.emit('log', { level: 'success', message: 'MongoDB connected — user data will persist', source: 'Database' });
+    // Expose DB helpers to plugins via global
+    (globalThis as any)._dbHelpers = { getUserCount, getServerInfo, isDbConnected };
+  } else {
+    logger.warn('Running without persistent database — users tracked in memory only');
+  }
+}).catch(() => {});
 
 httpServer.listen(port, async (err?: Error) => {
   if (err) {

@@ -1,9 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../store';
 import {
   MessageSquare, Send, Terminal, Users, UsersRound, Clock, Zap, HardDrive,
-  Cpu, TrendingUp, AlertTriangle, Wifi, WifiOff, Activity, BarChart3, Globe, RefreshCw
+  Cpu, TrendingUp, AlertTriangle, Wifi, WifiOff, Activity, BarChart3, Globe, RefreshCw,
+  Server, Crown, Shield
 } from 'lucide-react';
+
+interface ServerInfo {
+  serverId: string;
+  name: string;
+  tier: string;
+  maxUsers: number;
+  maxStorageMB: number;
+  usedStorageMB: number;
+  userCount: number;
+  isActive: boolean;
+  isFull?: boolean;
+  dbConnected?: boolean;
+}
 
 function formatUptime(ms: number) {
   if (!ms) return '—';
@@ -89,6 +103,24 @@ export default function DashboardHome() {
 
   const [reconnecting, setReconnecting] = useState(false);
   const [reconnectMsg, setReconnectMsg] = useState('');
+  const [servers, setServers] = useState<ServerInfo[]>([]);
+  const [dbConnected, setDbConnected] = useState(false);
+
+  useEffect(() => {
+    const fetchServers = async () => {
+      try {
+        const res = await fetch('/api/servers');
+        const data = await res.json();
+        if (data.ok) {
+          setServers(data.servers || []);
+          setDbConnected(!!data.dbConnected);
+        }
+      } catch {}
+    };
+    fetchServers();
+    const interval = setInterval(fetchServers, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleReconnect = async () => {
     setReconnecting(true);
@@ -252,6 +284,60 @@ export default function DashboardHome() {
               ))
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Server Capacity */}
+      <div className="glass rounded-2xl p-5">
+        <h3 className="text-sm font-semibold text-text-primary mb-4 flex items-center gap-2">
+          <Server className="w-4 h-4 text-accent-purple" />
+          Server Capacity
+          {dbConnected ? (
+            <span className="text-[10px] bg-wa-green/20 text-wa-green px-2 py-0.5 rounded-full ml-auto">DB Connected</span>
+          ) : (
+            <span className="text-[10px] bg-accent-orange/20 text-accent-orange px-2 py-0.5 rounded-full ml-auto">Memory Only</span>
+          )}
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {servers.length === 0 ? (
+            <p className="text-text-muted text-sm col-span-3 text-center py-4">Loading server data…</p>
+          ) : servers.map((srv) => {
+            const userPct = Math.round((srv.userCount / srv.maxUsers) * 100);
+            const storagePct = Math.round((srv.usedStorageMB / srv.maxStorageMB) * 100);
+            const isPremium = srv.tier === 'premium';
+            const isFull = srv.userCount >= srv.maxUsers || srv.usedStorageMB >= srv.maxStorageMB;
+            return (
+              <div key={srv.serverId} className={`rounded-xl p-4 border ${isPremium ? 'border-accent-orange/40 bg-accent-orange/5' : 'border-border bg-bg-input/50'}`}>
+                <div className="flex items-center gap-2 mb-3">
+                  {isPremium ? <Crown className="w-4 h-4 text-accent-orange" /> : <Shield className="w-4 h-4 text-accent-blue" />}
+                  <span className="text-xs font-semibold text-text-primary truncate">{srv.name}</span>
+                  {isFull && <span className="text-[9px] bg-accent-red/20 text-accent-red px-1.5 py-0.5 rounded ml-auto shrink-0">FULL</span>}
+                  {isPremium && !isFull && <span className="text-[9px] bg-accent-orange/20 text-accent-orange px-1.5 py-0.5 rounded ml-auto shrink-0">PRIORITY</span>}
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <div className="flex justify-between text-[10px] mb-1">
+                      <span className="text-text-muted">Users</span>
+                      <span className="text-text-secondary">{srv.userCount}/{srv.maxUsers}</span>
+                    </div>
+                    <div className="w-full bg-bg-card rounded-full h-1.5">
+                      <div className={`h-full rounded-full transition-all ${userPct > 90 ? 'bg-accent-red' : userPct > 70 ? 'bg-accent-orange' : 'bg-wa-green'}`} style={{ width: `${Math.min(userPct, 100)}%` }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-[10px] mb-1">
+                      <span className="text-text-muted">Storage</span>
+                      <span className="text-text-secondary">{srv.usedStorageMB}/{srv.maxStorageMB}MB</span>
+                    </div>
+                    <div className="w-full bg-bg-card rounded-full h-1.5">
+                      <div className={`h-full rounded-full transition-all ${storagePct > 90 ? 'bg-accent-red' : storagePct > 70 ? 'bg-accent-orange' : 'bg-accent-blue'}`} style={{ width: `${Math.min(storagePct, 100)}%` }} />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-text-muted pt-1">{srv.maxStorageMB - srv.usedStorageMB}MB storage free</p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
