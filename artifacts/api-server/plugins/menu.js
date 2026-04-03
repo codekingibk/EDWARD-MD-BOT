@@ -9,6 +9,8 @@ export default {
         const { chatId, senderId, config } = context;
         const prefix = config?.prefix || '.';
         const botName = config?.botName || 'EDWARD MD';
+        const serverTier = (config?.serverTier || 'free').toUpperCase();
+        const tierBadge = serverTier === 'PREMIUM' ? '👑 PREMIUM' : '🆓 FREE';
 
         const senderNum = (senderId || '').split('@')[0].split(':')[0];
         const userDisplay = senderNum ? `+${senderNum}` : 'User';
@@ -35,7 +37,6 @@ export default {
             categories[cat].add(p.command);
         }
 
-        // Category display config: [emoji, label, description]
         const catConfig = {
             owner:      ['👑', 'OWNER COMMANDS',     'Owner Only'],
             admin:      ['🛡️', 'ADMIN COMMANDS',     'Group Management'],
@@ -97,6 +98,7 @@ export default {
         text += `Next-generation bot with speed, flexibility,\nand absolute security has awakened.\n`;
         text += `〢「 🅴🅳🆆🅰🆁🅳  🅼🅳 」\n`;
         text += `࿇ Bot    : ${botName}\n`;
+        text += `࿇ Server : ${tierBadge}\n`;
         text += `࿇ Prefix : [ ${prefix} ]\n`;
         text += `࿇ User   : ${userDisplay}\n`;
         text += `࿇ Type   : ( Case─Plugins )\n`;
@@ -127,8 +129,43 @@ export default {
         // ── Footer ────────────────────────────────────────────────
         text += `💡  Type ${prefix}help  for command info\n`;
         text += `📌  Owner & Admin commands require proper permission\n`;
+        if (config?.menuChannelName) {
+            text += `📢  Channel : ${config.menuChannelName}\n`;
+        }
+        if (config?.menuNewsletterId) {
+            text += `🔗  Newsletter : ${config.menuNewsletterId}\n`;
+        }
         text += `🍁  ${botName}  🍁`;
 
-        await sock.sendMessage(chatId, { text }, { quoted: message });
+        // ── Send with image if configured, else plain text ────────
+        const menuImageUrl = config?.menuImageUrl;
+        const menuAudioUrl = config?.menuAudioUrl;
+
+        if (menuImageUrl) {
+            try {
+                await sock.sendMessage(chatId, {
+                    image: { url: menuImageUrl },
+                    caption: text,
+                }, { quoted: message });
+            } catch {
+                // fallback to text if image fails
+                await sock.sendMessage(chatId, { text }, { quoted: message });
+            }
+        } else {
+            await sock.sendMessage(chatId, { text }, { quoted: message });
+        }
+
+        // ── Send audio separately if configured ───────────────────
+        if (menuAudioUrl) {
+            try {
+                await sock.sendMessage(chatId, {
+                    audio: { url: menuAudioUrl },
+                    mimetype: 'audio/mpeg',
+                    ptt: false,
+                }, { quoted: message });
+            } catch (e) {
+                // audio send failure is non-fatal
+            }
+        }
     }
 };

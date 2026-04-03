@@ -5,6 +5,35 @@ import { getWhatsAppManager } from "../lib/whatsapp";
 import { getAllPluginsMeta, setPluginState, downloadAllPlugins, loadPlugins, getPluginUsageStats } from "../lib/plugins";
 import { notifySettingsUpdated, notifyPluginToggled, notifyPluginsReloaded } from "../lib/notifier";
 import os from 'os';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+
+// ── Premium key storage ───────────────────────────────────────────────────────
+const DATA_DIR = path.join(process.cwd(), 'data');
+const KEYS_FILE = path.join(DATA_DIR, 'premium-keys.json');
+const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
+mkdirSync(DATA_DIR, { recursive: true });
+mkdirSync(UPLOADS_DIR, { recursive: true });
+
+interface PremiumKey { key: string; generated: string; activated: boolean; activatedAt: string | null; }
+interface PremiumStore { keys: PremiumKey[]; serverTier: string; activeKey: string | null; }
+
+function readPremiumStore(): PremiumStore {
+  try { if (existsSync(KEYS_FILE)) return JSON.parse(readFileSync(KEYS_FILE, 'utf-8')); } catch {}
+  return { keys: [], serverTier: 'free', activeKey: null };
+}
+function writePremiumStore(data: PremiumStore) {
+  writeFileSync(KEYS_FILE, JSON.stringify(data, null, 2));
+}
+function generatePremiumKey(): string {
+  const seg = () => crypto.randomBytes(3).toString('hex').toUpperCase();
+  return `EDWARD-${seg()}-${seg()}-${seg()}`;
+}
+
+// Sync tier from stored premium data at startup
+const _premiumInit = readPremiumStore();
+let _serverTier = _premiumInit.serverTier || 'free';
 
 const log = logger.child({ module: "edward" });
 
@@ -23,6 +52,13 @@ let botConfig: Record<string, any> = {
   antiViewOnce: true, autoReact: false, statusSeen: true, statusReply: false,
   selfMode: false, alwaysOnline: true, autoRead: true, autoTyping: true,
   autoRecording: false, version: '2.0.0',
+  // Server & Customization
+  serverTier: _serverTier,
+  adminEmail: 'gboyegaibk@gmail.com',
+  menuImageUrl: '',
+  menuAudioUrl: '',
+  menuChannelName: '',
+  menuNewsletterId: '',
 };
 
 router.get('/plugins', (_req, res) => {
@@ -230,6 +266,112 @@ router.post('/execute', async (req, res) => {
   await new Promise(r => setTimeout(r, 200 + Math.random() * 300));
   const resp = mockResponses[id] || { ok: true, output: { message: `Plugin "${id}" test run. Connect to WhatsApp for real execution.`, args } };
   res.json(resp);
+});
+
+// ── Premium Key Management ────────────────────────────────────────────────────
+
+router.get('/premium/info', (_req, res) => {
+  const store = readPremiumStore();
+  botConfig.serverTier = store.serverTier || 'free';
+  res.json({
+    serverTier: store.serverTier || 'free',
+    activeKey: store.activeKey ? `${store.activeKey.slice(0, 13)}...` : null,
+    totalKeys: store.keys.length,
+    usedKeys: store.keys.filter(k => k.activated).length,
+    unusedKeys: store.keys.filter(k => !k.activated).length,
+  });
+});
+
+router.post('/premium/generate', (req, res) => {
+  const { adminEmail } = req.body;
+  const configuredAdmin = botConfig.adminEmail || 'gboyegaibk@gmail.com';
+  if (!adminEmail || adminEmail.trim().toLowerCase() !== configuredAdmin.toLowerCase()) {
+    res.status(403).json({ ok: false, error: 'Unauthorized. Only the admin can generate keys.' });
+    return;
+  }
+  const store = readPremiumStore();
+  const key = generatePremiumKey();
+  store.keys.push({ key, generated: new Date().toISOString(), activated: false, activatedAt: null });
+  writePremiumStore(store);
+  log.info({ key }, 'Premium key generated');
+  res.json({ ok: true, key });
+});
+
+router.post('/premium/activate', (req, res) => {
+  const { key } = req.body;
+  if (!key) { res.status(400).json({ ok: false, error: 'Key is required' }); return; }
+
+  const store = readPremiumStore();
+  const found = store.keys.find(k => k.key === key.trim());
+  if (!found) {
+    res.status(400).json({ ok: false, error: 'Invalid key. Please check and try again.' });
+    return;
+  }
+  if (found.activated) {
+    res.status(400).json({ ok: false, error: 'This key has already been used.' });
+    return;
+  }
+
+  found.activated = true;
+  found.activatedAt = new Date().toISOString();
+  store.serverTier = 'premium';
+  store.activeKey = key.trim();
+  writePremiumStore(store);
+
+  botConfig.serverTier = 'premium';
+  try { getWhatsAppManager().updateConfig(botConfig); } catch {}
+  if (io) io.emit('log', { level: 'success', message: '🎉 Server upgraded to PREMIUM!', source: 'Premium' });
+
+  log.info({ key }, 'Premium key activated — server upgraded');
+  res.json({ ok: true, message: '🎉 Server upgraded to Premium!', serverTier: 'premium' });
+});
+
+router.post('/premium/keys', (req, res) => {
+  const { adminEmail } = req.body;
+  const configuredAdmin = botConfig.adminEmail || 'gboyegaibk@gmail.com';
+  if (!adminEmail || adminEmail.trim().toLowerCase() !== configuredAdmin.toLowerCase()) {
+    res.status(403).json({ ok: false, error: 'Unauthorized' }); return;
+  }
+  const store = readPremiumStore();
+  res.json({ ok: true, keys: store.keys });
+});
+
+// ── File Uploads (base64 JSON) ────────────────────────────────────────────────
+
+router.post('/upload', (req, res) => {
+  try {
+    const { filename, data, type } = req.body;
+    if (!filename || !data) {
+      res.status(400).json({ ok: false, error: 'filename and data (base64) required' }); return;
+    }
+    const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
+    const buffer = Buffer.from(data, 'base64');
+    const filePath = path.join(UPLOADS_DIR, safeFilename);
+    writeFileSync(filePath, buffer);
+    log.info({ filename: safeFilename, size: buffer.length }, 'File uploaded');
+    res.json({ ok: true, url: `/api/uploads/${safeFilename}`, size: buffer.length });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.delete('/upload/:filename', (req, res) => {
+  try {
+    const { existsSync: fe, unlinkSync } = require('fs');
+    const safeFilename = req.params.filename.replace(/\.\./g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
+    const filePath = path.join(UPLOADS_DIR, safeFilename);
+    if (fe(filePath)) { unlinkSync(filePath); }
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.get('/uploads/:filename', (req, res) => {
+  const safeFilename = req.params.filename.replace(/\.\./g, '');
+  const filePath = path.join(UPLOADS_DIR, safeFilename);
+  if (!existsSync(filePath)) { res.status(404).json({ error: 'Not found' }); return; }
+  res.sendFile(filePath);
 });
 
 export default router;

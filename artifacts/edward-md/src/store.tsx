@@ -50,6 +50,13 @@ export interface BotConfig {
   antiCall: boolean; antiSpam: boolean; antiLink: boolean; welcomeMessage: boolean;
   goodbyeMessage: boolean; antiDelete: boolean; antiViewOnce: boolean; autoReact: boolean;
   statusSeen: boolean; statusReply: boolean; selfMode: boolean; alwaysOnline: boolean;
+  // Server & Customization
+  serverTier: 'free' | 'premium';
+  adminEmail: string;
+  menuImageUrl: string;
+  menuAudioUrl: string;
+  menuChannelName: string;
+  menuNewsletterId: string;
 }
 
 export interface LogEntry {
@@ -99,6 +106,8 @@ const defaultConfig: BotConfig = {
   antiCall: true, antiSpam: true, antiLink: false, welcomeMessage: true,
   goodbyeMessage: true, antiDelete: true, antiViewOnce: true, autoReact: false,
   statusSeen: true, statusReply: false, selfMode: false, alwaysOnline: true,
+  serverTier: 'free', adminEmail: 'gboyegaibk@gmail.com',
+  menuImageUrl: '', menuAudioUrl: '', menuChannelName: '', menuNewsletterId: '',
 };
 
 const AppContext = createContext<AppState | null>(null);
