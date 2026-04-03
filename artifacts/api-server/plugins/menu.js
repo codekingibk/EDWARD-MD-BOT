@@ -1,3 +1,24 @@
+import { existsSync, readFileSync } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
+
+function resolveMenuMedia(url) {
+    if (!url) return null;
+    // Relative API path — read from disk directly (Baileys can't reach the dev proxy URL)
+    if (url.startsWith('/api/uploads/')) {
+        const filename = url.replace('/api/uploads/', '');
+        const filepath = path.join(UPLOADS_DIR, filename);
+        if (existsSync(filepath)) return { type: 'file', buffer: readFileSync(filepath) };
+        return null;
+    }
+    // External/absolute URL — let Baileys fetch it
+    if (/^https?:\/\//.test(url)) return { type: 'url', url };
+    return null;
+}
+
 export default {
     command: 'menu',
     aliases: ['help', 'cmds', 'commands', 'start'],
@@ -9,7 +30,7 @@ export default {
         const { chatId, senderId, config } = context;
         const prefix = config?.prefix || '.';
         const botName = config?.botName || 'EDWARD MD';
-        const serverTier = (config?.serverTier || 'free').toUpperCase();
+        const serverTier = String(config?.serverTier || 'free').toUpperCase();
         const tierBadge = serverTier === 'PREMIUM' ? '👑 PREMIUM' : '🆓 FREE';
 
         const senderNum = (senderId || '').split('@')[0].split(':')[0];
@@ -29,7 +50,6 @@ export default {
         });
 
         const registry = globalThis._pluginRegistry || [];
-
         const categories = {};
         for (const p of registry) {
             const cat = (p.category || 'general').toLowerCase();
@@ -91,8 +111,6 @@ export default {
         const totalCmds = [...new Set(registry.map(p => p.command))].length;
 
         let text = '';
-
-        // ── Header ────────────────────────────────────────────────
         text += `( 🍁 ) ───ⒺⒹⓌⒶⓇⒹ ⓂⒹ\n`;
         text += `─── REVOLUTIONARY AUTOMATION SYSTEM ───\n`;
         text += `Next-generation bot with speed, flexibility,\nand absolute security has awakened.\n`;
@@ -106,7 +124,6 @@ export default {
         text += `࿇ Time   : ${lagosTime}\n`;
         text += `࿇ Cmds   : ${totalCmds} commands\n`;
 
-        // ── Categories ────────────────────────────────────────────
         const allKeys = Object.keys(mergedCategories);
         const ordered = [
             ...ORDER.filter(k => allKeys.includes(k)),
@@ -120,35 +137,25 @@ export default {
             text += `┌─────────\n`;
             text += `├──── ▢ ( ${emoji} ) ${label} (${cmds.length})\n`;
             if (desc) text += `├── ▢ ${desc}\n`;
-            for (const c of cmds) {
-                text += `│── ${prefix}${c}\n`;
-            }
+            for (const c of cmds) text += `│── ${prefix}${c}\n`;
             text += `└────\n`;
         }
 
-        // ── Footer ────────────────────────────────────────────────
         text += `💡  Type ${prefix}help  for command info\n`;
         text += `📌  Owner & Admin commands require proper permission\n`;
-        if (config?.menuChannelName) {
-            text += `📢  Channel : ${config.menuChannelName}\n`;
-        }
-        if (config?.menuNewsletterId) {
-            text += `🔗  Newsletter : ${config.menuNewsletterId}\n`;
-        }
+        if (config?.menuChannelName) text += `📢  Channel : ${config.menuChannelName}\n`;
+        if (config?.menuNewsletterId) text += `🔗  Newsletter : ${config.menuNewsletterId}\n`;
         text += `🍁  ${botName}  🍁`;
 
-        // ── Send with image if configured, else plain text ────────
-        const menuImageUrl = config?.menuImageUrl;
-        const menuAudioUrl = config?.menuAudioUrl;
-
-        if (menuImageUrl) {
+        // ── Send menu (image + text, or plain text) ───────────────
+        const imageMedia = resolveMenuMedia(config?.menuImageUrl);
+        if (imageMedia) {
             try {
-                await sock.sendMessage(chatId, {
-                    image: { url: menuImageUrl },
-                    caption: text,
-                }, { quoted: message });
+                const imageField = imageMedia.type === 'file'
+                    ? { image: imageMedia.buffer }
+                    : { image: { url: imageMedia.url } };
+                await sock.sendMessage(chatId, { ...imageField, caption: text }, { quoted: message });
             } catch {
-                // fallback to text if image fails
                 await sock.sendMessage(chatId, { text }, { quoted: message });
             }
         } else {
@@ -156,16 +163,14 @@ export default {
         }
 
         // ── Send audio separately if configured ───────────────────
-        if (menuAudioUrl) {
+        const audioMedia = resolveMenuMedia(config?.menuAudioUrl);
+        if (audioMedia) {
             try {
-                await sock.sendMessage(chatId, {
-                    audio: { url: menuAudioUrl },
-                    mimetype: 'audio/mpeg',
-                    ptt: false,
-                }, { quoted: message });
-            } catch (e) {
-                // audio send failure is non-fatal
-            }
+                const audioField = audioMedia.type === 'file'
+                    ? { audio: audioMedia.buffer, mimetype: 'audio/mpeg' }
+                    : { audio: { url: audioMedia.url }, mimetype: 'audio/mpeg' };
+                await sock.sendMessage(chatId, { ...audioField, ptt: false }, { quoted: message });
+            } catch {}
         }
     }
 };
