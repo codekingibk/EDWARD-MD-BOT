@@ -5,6 +5,12 @@
       "generated": "2026-04-03T10:23:32.680Z",
       "activated": true,
       "activatedAt": "2026-04-03T10:23:40.362Z"
+    },
+    {
+      "key": "EDWARD-7B83E1-0BC215-333B3E",
+      "generated": "2026-04-03T12:16:01.279Z",
+      "activated": false,
+      "activatedAt": null
     }
   ],
   "serverTier": "premium",

@@ -188,6 +188,10 @@ export default {
 
         // ── Button / List Menu ─────────────────────────────────
         if (menuType === 'buttons') {
+            // Always send the full categorised menu text first
+            await sock.sendMessage(chatId, { text }, { quoted: message });
+
+            // Then try to send an interactive list for browsing
             try {
                 const sections = [];
                 for (const cat of ordered) {
@@ -202,10 +206,9 @@ export default {
                     if (rows.length > 0) sections.push({ title: `${emoji} ${label}`, rows });
                 }
 
-                const listTitle = `🍁 ${botName}`;
-                const listBody = `${tierBadge}  |  ${prefix} prefix  |  ${totalCmds} commands\n\n${advertFooter}`;
-
                 if (sections.length > 0) {
+                    const listTitle = `🍁 ${botName}`;
+                    const listBody = `${tierBadge}  •  Prefix: [ ${prefix} ]  •  ${totalCmds} commands\n\n${advertFooter}`;
                     await sock.sendMessage(chatId, {
                         text: listBody,
                         title: listTitle,
@@ -213,13 +216,10 @@ export default {
                         footer: `${botName} • Africa/Lagos`,
                         sections: sections.slice(0, 10),
                         listType: 1,
-                    }, { quoted: message });
-                } else {
-                    await sock.sendMessage(chatId, { text }, { quoted: message });
+                    });
                 }
             } catch {
-                // Fallback to image/text if list message is unsupported
-                await sock.sendMessage(chatId, { text }, { quoted: message });
+                // Interactive list unsupported — full text already sent above
             }
 
             const audioMedia = resolveMenuMedia(config?.menuAudioUrl);
