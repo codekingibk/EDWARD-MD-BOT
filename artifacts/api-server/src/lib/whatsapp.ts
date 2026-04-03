@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, rmSync } from 'fs';
 import { handleMessage, handleCall, type HandlerConfig } from './messageHandler';
 import { loadPlugins, getAllPluginsMeta } from './plugins';
 import { setNotifierSocket, setNotifierConfig, notifyConnected } from './notifier';
+import { getUserCount, isConnected as isDbConnected } from './database';
 
 const log = logger.child({ module: 'WhatsApp' });
 
@@ -363,6 +364,7 @@ export class WhatsAppManager {
         (inc) => {
           if (inc.messagesReceived) this.stats.messagesReceived += inc.messagesReceived;
           if (inc.commandsExecuted) this.stats.commandsExecuted += inc.commandsExecuted;
+          if (inc.errorsToday) this.stats.errorsToday += inc.errorsToday;
           this.emitStats();
         },
         (level: string, msg: string, src?: string) => this.emitLog(level as any, msg, src),
@@ -436,24 +438,33 @@ export class WhatsAppManager {
     const memPercent = Math.round((memUsed / memTotal) * 1000) / 10;
     const cpuPercent = getCpuPercent();
 
-    this.emit('stats', {
-      messagesReceived: this.stats.messagesReceived,
-      messagesSent: this.stats.messagesSent,
-      commandsExecuted: this.stats.commandsExecuted,
-      activeGroups: this.stats.activeGroups,
-      activeUsers: this.stats.activeUsers,
-      errorsToday: this.stats.errorsToday,
-      uptime,
-      startTime: this.stats.startTime,
-      memoryUsage: memPercent,
-      cpuUsage: cpuPercent,
-      memoryUsedMB: Math.round(memUsed / 1024 / 1024),
-      memoryTotalMB: Math.round(memTotal / 1024 / 1024),
-      history: {
-        messages: [...this.history.messages],
-        commands: [...this.history.commands],
-        users: [...this.history.users],
-      },
+    // If DB is connected, use persisted user count (survives restarts)
+    const activeUsersSource = isDbConnected()
+      ? getUserCount().then(count => {
+          if (count > this.stats.activeUsers) this.stats.activeUsers = count;
+        }).catch(() => {})
+      : Promise.resolve();
+
+    activeUsersSource.finally(() => {
+      this.emit('stats', {
+        messagesReceived: this.stats.messagesReceived,
+        messagesSent: this.stats.messagesSent,
+        commandsExecuted: this.stats.commandsExecuted,
+        activeGroups: this.stats.activeGroups,
+        activeUsers: this.stats.activeUsers,
+        errorsToday: this.stats.errorsToday,
+        uptime,
+        startTime: this.stats.startTime,
+        memoryUsage: memPercent,
+        cpuUsage: cpuPercent,
+        memoryUsedMB: Math.round(memUsed / 1024 / 1024),
+        memoryTotalMB: Math.round(memTotal / 1024 / 1024),
+        history: {
+          messages: [...this.history.messages],
+          commands: [...this.history.commands],
+          users: [...this.history.users],
+        },
+      });
     });
   }
 

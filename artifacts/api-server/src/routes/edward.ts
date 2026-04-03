@@ -10,13 +10,67 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 
-// ── Premium key storage ───────────────────────────────────────────────────────
+// ── Storage paths ─────────────────────────────────────────────────────────────
 const STORAGE_BASE = process.env['STORAGE_DIR'] || process.cwd();
 const DATA_DIR = path.join(STORAGE_BASE, 'data');
 const KEYS_FILE = path.join(DATA_DIR, 'premium-keys.json');
+const SERVERS_FILE = path.join(DATA_DIR, 'admin-servers.json');
 const UPLOADS_DIR = path.join(STORAGE_BASE, 'uploads');
 mkdirSync(DATA_DIR, { recursive: true });
 mkdirSync(UPLOADS_DIR, { recursive: true });
+
+// ── Admin Server Records storage ──────────────────────────────────────────────
+interface AdminServerRecord {
+  id: string;
+  name: string;
+  ownerNumber: string;
+  plan: 'free' | 'premium';
+  key: string | null;
+  registeredAt: string;
+  notes: string;
+  usersCount: number;
+}
+
+function readServerRecords(): AdminServerRecord[] {
+  try { if (existsSync(SERVERS_FILE)) return JSON.parse(readFileSync(SERVERS_FILE, 'utf-8')); } catch {}
+  return [];
+}
+function writeServerRecords(data: AdminServerRecord[]) {
+  writeFileSync(SERVERS_FILE, JSON.stringify(data, null, 2));
+}
+
+// ── Admin Token Auth ──────────────────────────────────────────────────────────
+const ADMIN_SECRET = process.env['ADMIN_SECRET'] || 'edward_md_default_secret';
+const ADMIN_EMAIL = process.env['ADMIN_EMAIL'] || 'gboyegaibk@gmail.com';
+const ADMIN_PASSWORD = process.env['ADMIN_PASSWORD'] || 'Edward@Admin2024';
+const TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function generateAdminToken(email: string): string {
+  const ts = Date.now().toString();
+  const sig = crypto.createHmac('sha256', ADMIN_SECRET).update(`${email}:${ts}`).digest('hex');
+  return `${Buffer.from(email).toString('base64')}.${ts}.${sig}`;
+}
+
+function verifyAdminToken(token: string): boolean {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+    const [emailB64, ts, sig] = parts;
+    const email = Buffer.from(emailB64, 'base64').toString();
+    if (Date.now() - parseInt(ts) > TOKEN_EXPIRY_MS) return false;
+    const expected = crypto.createHmac('sha256', ADMIN_SECRET).update(`${email}:${ts}`).digest('hex');
+    return crypto.timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex'));
+  } catch { return false; }
+}
+
+function requireAdmin(req: any, res: any, next: any) {
+  const token = req.headers['x-admin-token'] as string;
+  if (!token || !verifyAdminToken(token)) {
+    res.status(401).json({ ok: false, error: 'Unauthorized — invalid or expired token' });
+    return;
+  }
+  next();
+}
 
 interface PremiumKey { key: string; generated: string; activated: boolean; activatedAt: string | null; }
 interface PremiumStore { keys: PremiumKey[]; serverTier: string; activeKey: string | null; }
@@ -121,10 +175,18 @@ router.post('/config', (req, res) => {
   res.json({ ok: true });
 });
 
-router.get('/status', (_req, res) => {
+router.get('/status', async (_req, res) => {
   try {
     const wa = getWhatsAppManager();
-    res.json({ ok: true, ...wa.getStatus() });
+    const status = wa.getStatus();
+    // Augment with real DB user count so dashboard shows correct numbers even when disconnected
+    if (isDbConnected()) {
+      const dbUsers = await getUserCount().catch(() => 0);
+      if (dbUsers > (status.activeUsers || 0)) {
+        (status as any).activeUsers = dbUsers;
+      }
+    }
+    res.json({ ok: true, ...status });
   } catch {
     res.json({ ok: true, connected: false });
   }
@@ -216,11 +278,14 @@ router.get('/plugin-stats', (_req, res) => {
   res.json(stats);
 });
 
-router.get('/metrics', (_req, res) => {
+router.get('/metrics', async (_req, res) => {
+  const dbUsers = isDbConnected() ? await getUserCount().catch(() => 0) : 0;
   try {
     const wa = getWhatsAppManager();
     const s = wa.getStats();
     const plugins = getAllPluginsMeta();
+    // Use DB user count if larger than in-memory (DB survives restarts)
+    if (dbUsers > (s.activeUsers || 0)) s.activeUsers = dbUsers;
     res.json({
       ...s,
       totalPlugins: plugins.length,
@@ -235,7 +300,7 @@ router.get('/metrics', (_req, res) => {
       messagesSent: 0,
       commandsExecuted: 0,
       activeGroups: 0,
-      activeUsers: 0,
+      activeUsers: dbUsers,
       errorsToday: 0,
       uptime: 0,
       startTime: Date.now(),
@@ -375,6 +440,147 @@ router.get('/uploads/:filename', (req, res) => {
   const filePath = path.join(UPLOADS_DIR, safeFilename);
   if (!existsSync(filePath)) { res.status(404).json({ error: 'Not found' }); return; }
   res.sendFile(filePath);
+});
+
+// ── Admin Authentication & Routes ─────────────────────────────────────────────
+
+router.post('/admin/login', (req, res) => {
+  const { email, password } = req.body;
+  const configuredEmail = ADMIN_EMAIL;
+  const configuredPassword = ADMIN_PASSWORD;
+
+  if (!email || !password) {
+    res.status(400).json({ ok: false, error: 'Email and password are required' });
+    return;
+  }
+
+  const emailMatch = email.trim().toLowerCase() === configuredEmail.toLowerCase();
+  const passMatch = password === configuredPassword;
+
+  if (!emailMatch || !passMatch) {
+    res.status(401).json({ ok: false, error: 'Invalid email or password' });
+    return;
+  }
+
+  const token = generateAdminToken(email.trim());
+  log.info({ email }, 'Admin logged in');
+  res.json({ ok: true, token, email: email.trim() });
+});
+
+router.post('/admin/logout', (_req, res) => {
+  res.json({ ok: true, message: 'Logged out' });
+});
+
+router.get('/admin/stats', requireAdmin, async (_req, res) => {
+  try {
+    const keys = readPremiumStore().keys;
+    const servers = readServerRecords();
+    const totalUsers = isDbConnected() ? await getUserCount() : 0;
+
+    res.json({
+      ok: true,
+      totalServers: servers.length,
+      freeServers: servers.filter(s => s.plan === 'free').length,
+      premiumServers: servers.filter(s => s.plan === 'premium').length,
+      totalUsers,
+      totalKeys: keys.length,
+      usedKeys: keys.filter(k => k.activated).length,
+      unusedKeys: keys.filter(k => !k.activated).length,
+    });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.get('/admin/servers', requireAdmin, (_req, res) => {
+  try {
+    const servers = readServerRecords();
+    res.json({ ok: true, servers });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/admin/servers', requireAdmin, (req, res) => {
+  try {
+    const { name, ownerNumber, plan, notes, usersCount } = req.body;
+    if (!name || !ownerNumber) {
+      res.status(400).json({ ok: false, error: 'name and ownerNumber are required' });
+      return;
+    }
+    const servers = readServerRecords();
+    const newServer: AdminServerRecord = {
+      id: crypto.randomBytes(8).toString('hex'),
+      name: name.trim(),
+      ownerNumber: ownerNumber.trim(),
+      plan: plan === 'premium' ? 'premium' : 'free',
+      key: null,
+      registeredAt: new Date().toISOString(),
+      notes: notes || '',
+      usersCount: parseInt(usersCount) || 0,
+    };
+    servers.push(newServer);
+    writeServerRecords(servers);
+    log.info({ id: newServer.id }, 'Admin: server record created');
+    res.json({ ok: true, server: newServer, servers });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.patch('/admin/servers/:id', requireAdmin, (req, res) => {
+  try {
+    const { id } = req.params;
+    const servers = readServerRecords();
+    const idx = servers.findIndex(s => s.id === id);
+    if (idx === -1) { res.status(404).json({ ok: false, error: 'Server not found' }); return; }
+    const { name, ownerNumber, plan, notes, usersCount } = req.body;
+    if (name !== undefined) servers[idx].name = name.trim();
+    if (ownerNumber !== undefined) servers[idx].ownerNumber = ownerNumber.trim();
+    if (plan !== undefined) servers[idx].plan = plan === 'premium' ? 'premium' : 'free';
+    if (notes !== undefined) servers[idx].notes = notes;
+    if (usersCount !== undefined) servers[idx].usersCount = parseInt(usersCount) || 0;
+    writeServerRecords(servers);
+    res.json({ ok: true, server: servers[idx], servers });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.delete('/admin/servers/:id', requireAdmin, (req, res) => {
+  try {
+    const { id } = req.params;
+    const servers = readServerRecords();
+    const filtered = servers.filter(s => s.id !== id);
+    if (filtered.length === servers.length) { res.status(404).json({ ok: false, error: 'Server not found' }); return; }
+    writeServerRecords(filtered);
+    log.info({ id }, 'Admin: server record deleted');
+    res.json({ ok: true, servers: filtered });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.get('/admin/keys', requireAdmin, (_req, res) => {
+  try {
+    const store = readPremiumStore();
+    res.json({ ok: true, keys: store.keys });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/admin/generate-key', requireAdmin, (req, res) => {
+  try {
+    const store = readPremiumStore();
+    const key = generatePremiumKey();
+    store.keys.push({ key, generated: new Date().toISOString(), activated: false, activatedAt: null });
+    writePremiumStore(store);
+    log.info({ key }, 'Admin: premium key generated');
+    res.json({ ok: true, key, keys: store.keys });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 // ── Server Capacity ───────────────────────────────────────────────────────────

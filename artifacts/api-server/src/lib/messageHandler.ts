@@ -46,7 +46,7 @@ export async function handleMessage(
   sock: WASocket,
   upsert: BaileysEventMap['messages.upsert'],
   config: HandlerConfig,
-  onStats: (inc: Partial<{ messagesReceived: number; commandsExecuted: number; activeUsers: number }>) => void,
+  onStats: (inc: Partial<{ messagesReceived: number; commandsExecuted: number; activeUsers: number; errorsToday: number }>) => void,
   onLog: (level: string, msg: string, src?: string) => void,
 ): Promise<void> {
   const { messages, type } = upsert;
@@ -235,6 +235,7 @@ export async function handleMessage(
       } catch (err: any) {
         log.error({ cmd: cmdLower, err: err.message }, 'Plugin handler error');
         onLog('error', `Plugin ${cmdLower} error: ${err.message}`, 'Commands');
+        onStats({ errorsToday: 1 });
         await sock.sendMessage(chatId, { text: `❌ Error running command: ${err.message}` }, { quoted: msg }).catch(() => {});
       } finally {
         if (config.autoTyping) {
