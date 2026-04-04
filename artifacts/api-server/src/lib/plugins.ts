@@ -222,18 +222,35 @@ async function computeAdminStatus(sock: any, chatId: string, senderId: string, i
   try {
     const metadata = await sock.groupMetadata(chatId);
     const participants = metadata.participants || [];
+
     const botId: string = sock.user?.id || '';
-    const botNumber = botId.includes(':') ? botId.split(':')[0] : (botId.includes('@') ? botId.split('@')[0] : botId);
-    const senderNumber = senderId.includes(':') ? senderId.split(':')[0] : (senderId.includes('@') ? senderId.split('@')[0] : senderId);
-    const senderJidClean = senderId.includes('@') ? senderId.split('@')[0] : senderId;
-    const isAdmins = participants.some((p: any) => {
-      const pId = p.id ? p.id.split('@')[0] : '';
-      return (pId === senderNumber || pId === senderJidClean) && (p.admin === 'admin' || p.admin === 'superadmin');
-    });
-    const isBotAdmins = participants.some((p: any) => {
-      const pId = p.id ? p.id.split('@')[0] : '';
-      return (pId === botNumber) && (p.admin === 'admin' || p.admin === 'superadmin');
-    });
+    const botLid: string = sock.user?.lid || '';
+    // Strip device suffix and @domain to get bare number/id
+    const bareId = (jid: string) => jid.split('@')[0].split(':')[0];
+    const botNumber = bareId(botId);
+    const botLidBare = bareId(botLid);
+
+    // Resolve sender: if it's a LID, find the real phone-number JID in participants
+    let resolvedSenderId = senderId;
+    if (senderId.endsWith('@lid')) {
+      const match = participants.find((p: any) => p.lid === senderId || bareId(p.lid || '') === bareId(senderId));
+      if (match?.id) resolvedSenderId = match.id;
+    }
+    const senderBare = bareId(resolvedSenderId);
+
+    const isAdmin = (p: any) => p.admin === 'admin' || p.admin === 'superadmin';
+
+    const participantMatches = (p: any, targetBare: string) => {
+      const pIdBare = bareId(p.id || '');
+      const pLidBare = bareId(p.lid || '');
+      return pIdBare === targetBare || pLidBare === targetBare;
+    };
+
+    const isAdmins = participants.some((p: any) => participantMatches(p, senderBare) && isAdmin(p));
+    const isBotAdmins = participants.some((p: any) =>
+      (participantMatches(p, botNumber) || (botLidBare && participantMatches(p, botLidBare))) && isAdmin(p)
+    );
+
     return { isAdmins, isBotAdmins };
   } catch {
     return { isAdmins: false, isBotAdmins: false };

@@ -68,14 +68,36 @@ export async function handleMessage(
         continue;
       }
 
-      const senderId = isGroup
+      const rawSenderId = isGroup
         ? (msg.key.participant || msg.key.remoteJid)!
         : (fromMe ? sock.user?.id! : chatId);
 
-      const ownerJid = config.ownerNumber
-        ? config.ownerNumber.replace(/[^0-9]/g, '') + '@s.whatsapp.net'
+      // Resolve LID-based JIDs to phone-number JIDs for group messages.
+      // Modern WhatsApp uses @lid JIDs (e.g. 12345:0@lid) for group participants
+      // instead of phone-number JIDs. We try to resolve via group metadata.
+      let senderId = rawSenderId;
+      if (isGroup && rawSenderId.endsWith('@lid')) {
+        try {
+          const meta = await sock.groupMetadata(chatId);
+          const match = (meta.participants || []).find((p: any) =>
+            p.lid === rawSenderId || p.id === rawSenderId
+          );
+          if (match?.id) senderId = match.id;
+        } catch {}
+      }
+
+      const ownerNumber = config.ownerNumber
+        ? config.ownerNumber.replace(/[^0-9]/g, '')
         : null;
-      const isOwner = ownerJid ? senderId.includes(ownerJid.split('@')[0]) : false;
+      const senderNumber = senderId.split('@')[0].split(':')[0];
+      const isOwner = ownerNumber
+        ? (senderNumber === ownerNumber || senderId.includes(ownerNumber))
+        : false;
+
+      // Debug log for ownership resolution (remove after fix confirmed)
+      if (isGroup) {
+        log.info({ rawSenderId, senderId, senderNumber, ownerNumber, isOwner }, '[DEBUG] Sender/owner resolution');
+      }
 
       if (!fromMe) {
         onStats({ messagesReceived: 1 });
