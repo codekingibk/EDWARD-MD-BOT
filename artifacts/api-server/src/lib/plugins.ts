@@ -376,36 +376,36 @@ export async function loadPlugins(): Promise<void> {
       }
 
       // Standard ES module plugin format (export default { command, handler })
-      if (!plugin?.command || typeof plugin?.handler !== 'function') continue;
+      // Also supports array exports: export default [{ command, handler }, ...]
+      const pluginList: PluginDef[] = Array.isArray(plugin)
+        ? plugin
+        : (plugin?.command && typeof plugin?.handler === 'function' ? [plugin] : []);
 
-      loadedPlugins.set(plugin.command, plugin);
-      if (plugin.aliases) {
-        for (const alias of plugin.aliases) {
-          loadedPlugins.set(alias, plugin);
+      if (pluginList.length === 0) continue;
+
+      for (const p of pluginList) {
+        if (!p?.command || typeof p?.handler !== 'function') continue;
+        loadedPlugins.set(p.command, p);
+        if (p.aliases) {
+          for (const alias of p.aliases) loadedPlugins.set(alias, p);
         }
+        if (!pluginsMeta[p.command]) {
+          pluginsMeta[p.command] = {
+            name: p.command,
+            category: p.category || 'general',
+            description: p.description || '',
+            enabled: pluginStates[p.command] !== false,
+          };
+        }
+        if (!pluginUsageStats.has(p.command)) pluginUsageStats.set(p.command, 0);
+        ((globalThis as any)._pluginRegistry as any[]).push({
+          command: p.command,
+          category: p.category || 'general',
+          description: p.description || '',
+          aliases: p.aliases || [],
+        });
+        loaded++;
       }
-
-      if (!pluginsMeta[plugin.command]) {
-        pluginsMeta[plugin.command] = {
-          name: plugin.command,
-          category: plugin.category || 'general',
-          description: plugin.description || '',
-          enabled: pluginStates[plugin.command] !== false,
-        };
-      }
-
-      if (!pluginUsageStats.has(plugin.command)) {
-        pluginUsageStats.set(plugin.command, 0);
-      }
-
-      ((globalThis as any)._pluginRegistry as any[]).push({
-        command: plugin.command,
-        category: plugin.category || 'general',
-        description: plugin.description || '',
-        aliases: plugin.aliases || [],
-      });
-
-      loaded++;
     } catch (err: any) {
       log.warn({ file, err: err.message }, 'Failed to load plugin');
     }

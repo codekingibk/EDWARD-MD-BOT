@@ -1,6 +1,8 @@
 import { AppProvider, useApp } from './store';
 import Login from './components/Login';
 import Pairing from './components/Pairing';
+import ServerSelect from './components/ServerSelect';
+import Community from './components/Community';
 import DashboardHome from './components/DashboardHome';
 import Plugins from './components/Plugins';
 import Settings from './components/Settings';
@@ -9,11 +11,11 @@ import Profile from './components/Profile';
 import {
   LayoutDashboard, Puzzle, Settings as SettingsIcon, ScrollText,
   LogOut, Bot, Menu, ChevronLeft, Wifi, WifiOff, Bell,
-  ExternalLink, Heart, UserCircle, X, Check
+  ExternalLink, Heart, UserCircle, X, Check, Users
 } from 'lucide-react';
 import { useState } from 'react';
 
-type Page = 'dashboard' | 'plugins' | 'settings' | 'logs' | 'profile';
+type Page = 'dashboard' | 'plugins' | 'settings' | 'logs' | 'profile' | 'community';
 
 function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { notifications, dismissNotification } = useApp();
@@ -63,6 +65,7 @@ function Sidebar() {
     { id: 'plugins', icon: Puzzle, label: 'Plugins' },
     { id: 'settings', icon: SettingsIcon, label: 'Settings' },
     { id: 'logs', icon: ScrollText, label: 'Logs', badge: 'Live' },
+    { id: 'community', icon: Users, label: 'Community' },
     { id: 'profile', icon: UserCircle, label: 'Profile' },
   ];
   const formatUptime = (ms: number) => { const s = Math.floor(ms / 1000); const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); return h > 0 ? `${h}h ${m}m` : `${m}m`; };
@@ -202,6 +205,7 @@ function DashboardLayout() {
           {page === 'plugins' && <Plugins />}
           {page === 'settings' && <Settings />}
           {page === 'logs' && <Logs />}
+          {page === 'community' && <Community />}
           {page === 'profile' && <Profile />}
         </main>
         <footer className="px-6 py-4 border-t border-border text-center">
@@ -216,8 +220,9 @@ function DashboardLayout() {
 }
 
 function AppContent() {
-  const { isAuthenticated, isConnected, page } = useApp();
+  const { isAuthenticated, isConnected, page, selectedServer } = useApp();
   if (!isAuthenticated || page === 'login' || page === 'register') return <Login />;
+  if (!selectedServer || page === 'server-select') return <ServerSelect />;
   if (!isConnected) return <Pairing />;
   return <DashboardLayout />;
 }

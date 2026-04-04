@@ -149,3 +149,50 @@ export async function updateServerStorage(serverId: string, usedMB: number): Pro
     await Server.findOneAndUpdate({ serverId }, { $set: { usedStorageMB: usedMB } });
   } catch {}
 }
+
+// ── Community Schema ──────────────────────────────────────────────────────────
+export interface ICommunityReply {
+  id: string;
+  authorName: string;
+  authorId: string;
+  isAdmin: boolean;
+  content: string;
+  createdAt: Date;
+}
+
+export interface ICommunityPost extends Document {
+  title: string;
+  content: string;
+  category: 'features' | 'bugs' | 'general' | 'announcements';
+  authorName: string;
+  authorId: string;
+  isAdmin: boolean;
+  isPinned: boolean;
+  likes: string[];
+  replies: ICommunityReply[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const CommunityPostSchema = new Schema<ICommunityPost>({
+  title: { type: String, required: true, maxlength: 200 },
+  content: { type: String, required: true, maxlength: 5000 },
+  category: { type: String, enum: ['features', 'bugs', 'general', 'announcements'], default: 'general' },
+  authorName: { type: String, required: true },
+  authorId: { type: String, required: true },
+  isAdmin: { type: Boolean, default: false },
+  isPinned: { type: Boolean, default: false },
+  likes: [{ type: String }],
+  replies: [{
+    id: { type: String },
+    authorName: { type: String },
+    authorId: { type: String },
+    isAdmin: { type: Boolean, default: false },
+    content: { type: String, maxlength: 2000 },
+    createdAt: { type: Date, default: Date.now },
+  }],
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
+});
+
+export const CommunityPost = model<ICommunityPost>('CommunityPost', CommunityPostSchema);

@@ -5,7 +5,7 @@ import {
   Settings as SettingsIcon, Bot, Hash, Phone, Globe, Eye, MessageSquare, Shield,
   Bell, Mic, PhoneOff, Link2, UserX, Sparkles, Save, RotateCcw, Lock, Palette,
   Radio, Heart, Send, Users, Crown, Key, Upload, Image, Volume2, Tv2,
-  CheckCircle, AlertCircle, Loader2, Star, Zap, RefreshCw, List, Type, LayoutList
+  CheckCircle, AlertCircle, Loader2, Star, Zap, RefreshCw, List, Type
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -136,7 +136,6 @@ export default function Settings() {
   const menuTypeOptions: { value: BotConfig['menuType']; label: string; desc: string; icon: any }[] = [
     { value: 'text', label: 'Text Only', desc: 'Plain text menu, no media', icon: Type },
     { value: 'image', label: 'Image + Text', desc: 'Menu with image header', icon: Image },
-    { value: 'buttons', label: 'Button List', desc: 'Interactive list menu', icon: LayoutList },
   ];
 
   const toggles: { key: keyof BotConfig; label: string; description: string; icon: any }[] = [
@@ -281,7 +280,7 @@ export default function Settings() {
           </div>
 
           {/* Image Upload — shown for image mode */}
-          {(botConfig.menuType === 'image' || botConfig.menuType === 'buttons' || !botConfig.menuType) && (
+          {(botConfig.menuType === 'image' || !botConfig.menuType) && (
             <div>
               <label className="text-xs font-medium text-text-secondary mb-2 block flex items-center gap-1.5"><Image className="w-3.5 h-3.5" />Menu Image</label>
               <div className="flex gap-2">

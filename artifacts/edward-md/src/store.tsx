@@ -57,7 +57,7 @@ export interface BotConfig {
   menuAudioUrl: string;
   menuChannelName: string;
   menuNewsletterId: string;
-  menuType: 'text' | 'image' | 'buttons';
+  menuType: 'text' | 'image';
 }
 
 export interface LogEntry {
@@ -77,7 +77,7 @@ export interface NotificationItem {
   id: string; title: string; message: string; type: 'info' | 'success' | 'warning' | 'error'; timestamp: number; read: boolean;
 }
 
-type Page = 'login' | 'register' | 'pairing' | 'dashboard' | 'plugins' | 'settings' | 'logs' | 'profile';
+type Page = 'login' | 'register' | 'server-select' | 'pairing' | 'dashboard' | 'plugins' | 'settings' | 'logs' | 'profile' | 'community';
 
 interface AppState {
   page: Page; setPage: (p: Page) => void;
@@ -99,6 +99,8 @@ interface AppState {
   phoneNumber: string; setPhoneNumber: (v: string) => void;
   pairingCode: string; setPairingCode: (v: string) => void;
   notifications: NotificationItem[]; addNotification: (title: string, message: string, type: NotificationItem['type']) => void; dismissNotification: (id: string) => void;
+  selectedServer: { id: string; name: string; tier: string } | null;
+  setSelectedServer: (s: { id: string; name: string; tier: string } | null) => void;
 }
 
 const defaultConfig: BotConfig = {
@@ -133,6 +135,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [plugins, setPlugins] = useState<Plugin[]>(defaultPlugins);
   const [pluginsLoaded, setPluginsLoaded] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [selectedServer, setSelectedServer] = useState<{ id: string; name: string; tier: string } | null>(() => {
+    try { const s = localStorage.getItem('edward-md-server'); return s ? JSON.parse(s) : null; } catch { return null; }
+  });
   const logIdRef = useRef(0);
   const socketRef = useRef<Socket | null>(null);
 
@@ -167,7 +172,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (session) {
       const users = getStoredUsers();
       const user = users.find(u => u.id === session.userId);
-      if (user) { setCurrentUser(user); setIsAuthenticated(true); setPage('pairing'); }
+      if (user) {
+        setCurrentUser(user); setIsAuthenticated(true);
+        const savedServer = localStorage.getItem('edward-md-server');
+        setPage(savedServer ? 'pairing' : 'server-select');
+      }
     }
   }, []);
 
@@ -306,7 +315,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const updated = { ...user, lastLogin: Date.now(), sessions: user.sessions + 1 };
     const updatedUsers = users.map(u => u.id === user.id ? updated : u);
     saveUsers(updatedUsers); setAllUsers(updatedUsers); setCurrentUser(updated); setIsAuthenticated(true);
-    saveSession(updated.id, 'token_' + Date.now()); setPage('pairing');
+    saveSession(updated.id, 'token_' + Date.now()); setPage('server-select');
     addLog('success', `${updated.displayName} logged in (${updated.role})`, 'Auth');
     addNotification('Welcome Back! 👋', `Logged in as ${updated.displayName}`, 'success');
     return { ok: true };
@@ -315,7 +324,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     if (currentUser) addLog('info', `${currentUser.displayName} logged out`, 'Auth');
     setIsAuthenticated(false); setCurrentUser(null); setIsConnected(false);
-    setQrCode(''); setPairingCode(''); clearSession(); setPage('login');
+    setQrCode(''); setPairingCode(''); clearSession();
+    setSelectedServer(null); localStorage.removeItem('edward-md-server');
+    setPage('login');
   };
 
   const updateProfile = (updates: Partial<UserAccount>) => {
@@ -378,6 +389,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       logs, addLog, clearLogs, stats, sidebarOpen, setSidebarOpen,
       phoneNumber, setPhoneNumber, pairingCode, setPairingCode,
       notifications, addNotification, dismissNotification,
+      selectedServer, setSelectedServer: (s) => {
+        setSelectedServer(s);
+        if (s) localStorage.setItem('edward-md-server', JSON.stringify(s));
+        else localStorage.removeItem('edward-md-server');
+      },
     }}>
       {children}
     </AppContext.Provider>

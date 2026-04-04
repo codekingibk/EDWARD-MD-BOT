@@ -4,7 +4,7 @@ import { logger } from "../lib/logger";
 import { getWhatsAppManager } from "../lib/whatsapp";
 import { getAllPluginsMeta, setPluginState, downloadAllPlugins, loadPlugins, getPluginUsageStats } from "../lib/plugins";
 import { notifySettingsUpdated, notifyPluginToggled, notifyPluginsReloaded } from "../lib/notifier";
-import { getAllServers, getUserCount, getServerInfo, isConnected as isDbConnected } from "../lib/database";
+import { getAllServers, getUserCount, getServerInfo, isConnected as isDbConnected, CommunityPost } from "../lib/database";
 import os from 'os';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import path from 'path';
@@ -655,6 +655,202 @@ router.get('/servers/:id/stats', async (req, res) => {
       spaceFreePercent: Math.round(((server.maxStorageMB - server.usedStorageMB) / server.maxStorageMB) * 100),
       userFreePercent: Math.round(((server.maxUsers - userCount) / server.maxUsers) * 100),
     });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── Public Servers endpoint (for server selection before pairing) ─────────────
+router.get('/servers/public', async (_req, res) => {
+  try {
+    const adminServers: AdminServerRecord[] = existsSync(SERVERS_FILE) ? JSON.parse(readFileSync(SERVERS_FILE, 'utf-8')) : [];
+    const keysData = existsSync(KEYS_FILE) ? JSON.parse(readFileSync(KEYS_FILE, 'utf-8')) : { keys: [] };
+
+    const servers = adminServers.map(s => {
+      const usedKeys = (keysData.keys || []).filter((k: any) => k.activated).length;
+      return {
+        id: s.id,
+        name: s.name,
+        tier: s.plan || 'free',
+        maxUsers: s.plan === 'premium' ? 2000 : 500,
+        maxStorageMB: s.plan === 'premium' ? 2048 : 500,
+        usedStorageMB: Math.round(Math.random() * (s.plan === 'premium' ? 400 : 120)),
+        userCount: s.usersCount || 0,
+        region: 'Africa/Lagos',
+        features: s.plan === 'premium'
+          ? ['Unlimited commands', 'Priority support', '2000 users', '2GB storage', 'Custom prefix', 'All plugins']
+          : ['All bot commands', '500 users', '500MB storage', 'Community support'],
+        notes: s.notes || '',
+        registeredAt: s.registeredAt,
+      };
+    });
+
+    // Always include the main server
+    const mainServer = {
+      id: 'main',
+      name: 'EDWARD MD Main Server',
+      tier: 'free',
+      maxUsers: 500,
+      maxStorageMB: 500,
+      usedStorageMB: 0,
+      userCount: isDbConnected() ? await getUserCount() : 0,
+      region: 'Africa/Lagos',
+      features: ['All bot commands', '500 users', '500MB storage', 'Community support'],
+      notes: 'Default public server',
+      registeredAt: new Date().toISOString(),
+    };
+
+    const allServers = [mainServer, ...servers.filter(s => s.id !== 'main')];
+    res.json({ ok: true, servers: allServers });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── Premium key validation for server selection ───────────────────────────────
+router.post('/servers/validate-key', (req, res) => {
+  const { key } = req.body;
+  if (!key) { res.status(400).json({ ok: false, error: 'Key required' }); return; }
+  const keysData = existsSync(KEYS_FILE) ? JSON.parse(readFileSync(KEYS_FILE, 'utf-8')) : { keys: [] };
+  const keyRecord = (keysData.keys || []).find((k: any) => k.key === key && !k.activated);
+  if (!keyRecord) {
+    res.json({ ok: false, error: 'Invalid key or already used' });
+    return;
+  }
+  res.json({ ok: true, message: 'Key is valid — proceed to pairing' });
+});
+
+// ── Community Routes ─────────────────────────────────────────────────────────
+function isAdminAuthor(authorId: string): boolean {
+  return !!ADMIN_EMAIL && authorId === ADMIN_EMAIL;
+}
+
+// GET /api/community/posts
+router.get('/community/posts', async (req, res) => {
+  try {
+    if (!isDbConnected()) { res.json({ ok: true, posts: [] }); return; }
+    const { category, page = '1', limit = '20' } = req.query as Record<string, string>;
+    const filter: Record<string, any> = {};
+    if (category && category !== 'all') filter.category = category;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const [posts, total] = await Promise.all([
+      CommunityPost.find(filter).sort({ isPinned: -1, createdAt: -1 }).skip(skip).limit(parseInt(limit)).lean(),
+      CommunityPost.countDocuments(filter),
+    ]);
+    res.json({ ok: true, posts, total, page: parseInt(page), pages: Math.ceil(total / parseInt(limit)) });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// POST /api/community/posts
+router.post('/community/posts', async (req, res) => {
+  try {
+    if (!isDbConnected()) { res.status(503).json({ ok: false, error: 'Database not connected' }); return; }
+    const { title, content, category, authorName, authorId } = req.body;
+    if (!title || !content || !authorName || !authorId) {
+      res.status(400).json({ ok: false, error: 'title, content, authorName, authorId required' }); return;
+    }
+    const post = await CommunityPost.create({
+      title: title.slice(0, 200),
+      content: content.slice(0, 5000),
+      category: category || 'general',
+      authorName,
+      authorId,
+      isAdmin: isAdminAuthor(authorId),
+      isPinned: false,
+      likes: [],
+      replies: [],
+    });
+    res.json({ ok: true, post });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// GET /api/community/posts/:id
+router.get('/community/posts/:id', async (req, res) => {
+  try {
+    if (!isDbConnected()) { res.status(503).json({ ok: false, error: 'Database not connected' }); return; }
+    const post = await CommunityPost.findById(req.params.id).lean();
+    if (!post) { res.status(404).json({ ok: false, error: 'Post not found' }); return; }
+    res.json({ ok: true, post });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// POST /api/community/posts/:id/reply
+router.post('/community/posts/:id/reply', async (req, res) => {
+  try {
+    if (!isDbConnected()) { res.status(503).json({ ok: false, error: 'Database not connected' }); return; }
+    const { content, authorName, authorId } = req.body;
+    if (!content || !authorName || !authorId) {
+      res.status(400).json({ ok: false, error: 'content, authorName, authorId required' }); return;
+    }
+    const reply = {
+      id: crypto.randomBytes(8).toString('hex'),
+      authorName,
+      authorId,
+      isAdmin: isAdminAuthor(authorId),
+      content: content.slice(0, 2000),
+      createdAt: new Date(),
+    };
+    const post = await CommunityPost.findByIdAndUpdate(
+      req.params.id,
+      { $push: { replies: reply }, $set: { updatedAt: new Date() } },
+      { new: true }
+    ).lean();
+    if (!post) { res.status(404).json({ ok: false, error: 'Post not found' }); return; }
+    res.json({ ok: true, reply });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// POST /api/community/posts/:id/like
+router.post('/community/posts/:id/like', async (req, res) => {
+  try {
+    if (!isDbConnected()) { res.status(503).json({ ok: false, error: 'Database not connected' }); return; }
+    const { authorId } = req.body;
+    if (!authorId) { res.status(400).json({ ok: false, error: 'authorId required' }); return; }
+    const post = await CommunityPost.findById(req.params.id);
+    if (!post) { res.status(404).json({ ok: false, error: 'Post not found' }); return; }
+    const liked = post.likes.includes(authorId);
+    if (liked) {
+      post.likes = post.likes.filter((id: string) => id !== authorId);
+    } else {
+      post.likes.push(authorId);
+    }
+    await post.save();
+    res.json({ ok: true, likes: post.likes.length, liked: !liked });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// DELETE /api/community/posts/:id
+router.delete('/community/posts/:id', requireAdmin, async (req, res) => {
+  try {
+    if (!isDbConnected()) { res.status(503).json({ ok: false, error: 'Database not connected' }); return; }
+    await CommunityPost.findByIdAndDelete(req.params.id);
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// PATCH /api/community/posts/:id/pin (admin only)
+router.patch('/community/posts/:id/pin', requireAdmin, async (req, res) => {
+  try {
+    if (!isDbConnected()) { res.status(503).json({ ok: false, error: 'Database not connected' }); return; }
+    const post = await CommunityPost.findByIdAndUpdate(
+      req.params.id,
+      [{ $set: { isPinned: { $not: '$isPinned' } } }],
+      { new: true }
+    ).lean();
+    if (!post) { res.status(404).json({ ok: false, error: 'Post not found' }); return; }
+    res.json({ ok: true, isPinned: post.isPinned });
   } catch (err: any) {
     res.status(500).json({ ok: false, error: err.message });
   }
