@@ -9,14 +9,12 @@ cmd({
     filename: __filename
 },
 async (conn, mek, m, {
-    from, q, isGroup, isBotAdmins, reply, quoted, senderNumber
+    from, q, isGroup, isOwner, isBotAdmins, reply, quoted, senderNumber
 }) => {
     // Check if the command is used in a group
     if (!isGroup) return reply("❌ This command can only be used in groups.");
 
-    // Get the bot owner's number dynamically from conn.user.id
-    const botOwner = conn.user.id.split(":")[0];
-    if (senderNumber !== botOwner) {
+    if (!isOwner) {
         return reply("❌ Only the bot owner can use this command.");
     }
 

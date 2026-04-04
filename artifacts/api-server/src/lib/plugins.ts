@@ -217,6 +217,29 @@ function buildChannelContextInfo(config: Record<string, any>): any {
   };
 }
 
+async function computeAdminStatus(sock: any, chatId: string, senderId: string, isGroup: boolean): Promise<{ isAdmins: boolean; isBotAdmins: boolean }> {
+  if (!isGroup) return { isAdmins: false, isBotAdmins: false };
+  try {
+    const metadata = await sock.groupMetadata(chatId);
+    const participants = metadata.participants || [];
+    const botId: string = sock.user?.id || '';
+    const botNumber = botId.includes(':') ? botId.split(':')[0] : (botId.includes('@') ? botId.split('@')[0] : botId);
+    const senderNumber = senderId.includes(':') ? senderId.split(':')[0] : (senderId.includes('@') ? senderId.split('@')[0] : senderId);
+    const senderJidClean = senderId.includes('@') ? senderId.split('@')[0] : senderId;
+    const isAdmins = participants.some((p: any) => {
+      const pId = p.id ? p.id.split('@')[0] : '';
+      return (pId === senderNumber || pId === senderJidClean) && (p.admin === 'admin' || p.admin === 'superadmin');
+    });
+    const isBotAdmins = participants.some((p: any) => {
+      const pId = p.id ? p.id.split('@')[0] : '';
+      return (pId === botNumber) && (p.admin === 'admin' || p.admin === 'superadmin');
+    });
+    return { isAdmins, isBotAdmins };
+  } catch {
+    return { isAdmins: false, isBotAdmins: false };
+  }
+}
+
 function wrapCmdHandler(
   handler: (conn: any, mek: any, m: any, helpers: any) => Promise<void>
 ): PluginDef['handler'] {
@@ -264,6 +287,8 @@ function wrapCmdHandler(
       inner?.videoMessage?.caption ||
       inner?.documentMessage?.caption || '';
 
+    const { isAdmins, isBotAdmins } = await computeAdminStatus(sock, chatId, senderId, isGroup);
+
     const helpers = {
       from: chatId,
       q,
@@ -273,8 +298,9 @@ function wrapCmdHandler(
       args,
       isGroup,
       isOwner,
-      isAdmin,
-      isBotAdmins: false,
+      isAdmin: isAdmins,
+      isAdmins,
+      isBotAdmins,
       senderNumber: senderId.split('@')[0].split(':')[0],
       prefix: config?.prefix || '.',
       reply,
