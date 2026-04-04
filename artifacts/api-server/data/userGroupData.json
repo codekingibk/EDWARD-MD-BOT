@@ -1,0 +1,16 @@
+{
+  "antibadword": {},
+  "antilink": {},
+  "welcome": {
+    "120363406320451940@g.us": {
+      "enabled": true,
+      "message": "testing welcome Message",
+      "channelId": "120363161513685998@newsletter"
+    }
+  },
+  "goodbye": {},
+  "chatbot": {},
+  "warnings": {},
+  "sudo": [],
+  "antitag": {}
+}
