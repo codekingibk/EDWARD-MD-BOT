@@ -53,8 +53,6 @@ function buildMenuText(prefix, botName, tierBadge, userDisplay, lagosTime, total
 
     text += `💡  Type ${prefix}help  for command info\n`;
     text += `📌  Owner & Admin commands require proper permission\n`;
-    if (config?.menuChannelName) text += `📢  Channel : ${config.menuChannelName}\n`;
-    if (config?.menuNewsletterId) text += `🔗  Newsletter : ${config.menuNewsletterId}\n`;
     text += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
     text += `🚀 *Get your own FREE bot!*\n`;
     text += `👉 ${WEBSITE}\n`;
@@ -186,10 +184,21 @@ export default {
 
         const advertFooter = `🚀 Get your own FREE bot → ${WEBSITE}`;
 
+        // Build newsletter contextInfo for channel forwarding
+        const channelCtxInfo = config?.menuNewsletterId ? {
+            forwardingScore: 1,
+            isForwarded: true,
+            forwardedNewsletterMessageInfo: {
+                newsletterJid: config.menuNewsletterId,
+                newsletterName: config.menuChannelName || botName,
+                serverMessageId: -1,
+            },
+        } : undefined;
+
         // ── Button / List Menu ─────────────────────────────────
         if (menuType === 'buttons') {
             // Always send the full categorised menu text first
-            await sock.sendMessage(chatId, { text }, { quoted: message });
+            await sock.sendMessage(chatId, { text, ...(channelCtxInfo ? { contextInfo: channelCtxInfo } : {}) }, { quoted: message });
 
             // Then try to send an interactive list for browsing
             try {
@@ -242,12 +251,12 @@ export default {
                     const imageField = imageMedia.type === 'file'
                         ? { image: imageMedia.buffer }
                         : { image: { url: imageMedia.url } };
-                    await sock.sendMessage(chatId, { ...imageField, caption: text }, { quoted: message });
+                    await sock.sendMessage(chatId, { ...imageField, caption: text, ...(channelCtxInfo ? { contextInfo: channelCtxInfo } : {}) }, { quoted: message });
                 } catch {
-                    await sock.sendMessage(chatId, { text }, { quoted: message });
+                    await sock.sendMessage(chatId, { text, ...(channelCtxInfo ? { contextInfo: channelCtxInfo } : {}) }, { quoted: message });
                 }
             } else {
-                await sock.sendMessage(chatId, { text }, { quoted: message });
+                await sock.sendMessage(chatId, { text, ...(channelCtxInfo ? { contextInfo: channelCtxInfo } : {}) }, { quoted: message });
             }
 
             const audioMedia = resolveMenuMedia(config?.menuAudioUrl);
@@ -263,7 +272,7 @@ export default {
         }
 
         // ── Text Menu (default fallback) ───────────────────────
-        await sock.sendMessage(chatId, { text }, { quoted: message });
+        await sock.sendMessage(chatId, { text, ...(channelCtxInfo ? { contextInfo: channelCtxInfo } : {}) }, { quoted: message });
 
         const audioMedia = resolveMenuMedia(config?.menuAudioUrl);
         if (audioMedia) {

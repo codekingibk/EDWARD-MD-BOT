@@ -17,17 +17,11 @@ if (!HAS_DB && !fs.existsSync(configPath)) {
         reactOn: false
     }, null, 2));
 }
-const channelInfo = {
-    contextInfo: {
-        forwardingScore: 1,
-        isForwarded: true,
-        forwardedNewsletterMessageInfo: {
-            newsletterJid: '120363319098372999@newsletter',
-            newsletterName: 'GlobalTechInc',
-            serverMessageId: -1
-        }
-    }
-};
+function buildChannelInfo(config) {
+    const jid = config?.menuNewsletterId;
+    if (!jid) return {};
+    return { contextInfo: { forwardingScore: 1, isForwarded: true, forwardedNewsletterMessageInfo: { newsletterJid: jid, newsletterName: config?.menuChannelName || config?.botName || 'EDWARD MD', serverMessageId: -1 } } };
+}
 async function readConfig() {
     try {
         if (HAS_DB) {
@@ -186,7 +180,7 @@ export default {
                         `• \`.autostatus off\` - Disable auto view\n` +
                         `• \`.autostatus react on\` - Enable reaction\n` +
                         `• \`.autostatus react off\` - Disable reaction`,
-                    ...channelInfo
+                    ...buildChannelInfo(context.config)
                 }, { quoted: message });
                 return;
             }
@@ -197,7 +191,7 @@ export default {
                 await sock.sendMessage(chatId, {
                     text: '✅ *Auto status view enabled!*\n\n' +
                         'Bot will now automatically view all contact statuses.',
-                    ...channelInfo
+                    ...buildChannelInfo(context.config)
                 }, { quoted: message });
             }
             else if (command === 'off') {
@@ -206,7 +200,7 @@ export default {
                 await sock.sendMessage(chatId, {
                     text: '❌ *Auto status view disabled!*\n\n' +
                         'Bot will no longer automatically view statuses.',
-                    ...channelInfo
+                    ...buildChannelInfo(context.config)
                 }, { quoted: message });
             }
             else if (command === 'react') {
@@ -214,7 +208,7 @@ export default {
                     await sock.sendMessage(chatId, {
                         text: '❌ *Please specify on/off for reactions!*\n\n' +
                             'Usage: `.autostatus react on/off`',
-                        ...channelInfo
+                        ...buildChannelInfo(context.config)
                     }, { quoted: message });
                     return;
                 }
@@ -225,7 +219,7 @@ export default {
                     await sock.sendMessage(chatId, {
                         text: '💫 *Status reactions enabled!*\n\n' +
                             'Bot will now react to status updates with 💚',
-                        ...channelInfo
+                        ...buildChannelInfo(context.config)
                     }, { quoted: message });
                 }
                 else if (reactCommand === 'off') {
@@ -234,14 +228,14 @@ export default {
                     await sock.sendMessage(chatId, {
                         text: '❌ *Status reactions disabled!*\n\n' +
                             'Bot will no longer react to status updates.',
-                        ...channelInfo
+                        ...buildChannelInfo(context.config)
                     }, { quoted: message });
                 }
                 else {
                     await sock.sendMessage(chatId, {
                         text: '❌ *Invalid reaction command!*\n\n' +
                             'Usage: `.autostatus react on/off`',
-                        ...channelInfo
+                        ...buildChannelInfo(context.config)
                     }, { quoted: message });
                 }
             }
@@ -251,7 +245,7 @@ export default {
                         '*Usage:*\n' +
                         '• `.autostatus on/off` - Enable/disable auto view\n' +
                         '• `.autostatus react on/off` - Enable/disable reactions',
-                    ...channelInfo
+                    ...buildChannelInfo(context.config)
                 }, { quoted: message });
             }
         }
@@ -260,7 +254,7 @@ export default {
             await sock.sendMessage(chatId, {
                 text: '❌ *Error occurred while managing auto status!*\n\n' +
                     `Error: ${error.message}`,
-                ...channelInfo
+                ...buildChannelInfo(context.config)
             }, { quoted: message });
         }
     },

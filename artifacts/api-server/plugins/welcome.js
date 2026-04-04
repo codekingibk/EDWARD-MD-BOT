@@ -23,15 +23,7 @@ async function handleJoinEvent(sock, id, participants) {
     const groupName = groupMetadata.subject;
     const groupDesc = groupMetadata.desc || 'No description available';
     const channelInfo = {
-        contextInfo: {
-            forwardingScore: 1,
-            isForwarded: true,
-            forwardedNewsletterMessageInfo: {
-                newsletterJid: '120363319098372999@newsletter',
-                newsletterName: 'EDWARD MD',
-                serverMessageId: -1
-            }
-        }
+        contextInfo: (() => { const jid = config?.menuNewsletterId; if (!jid) return undefined; return { forwardingScore: 1, isForwarded: true, forwardedNewsletterMessageInfo: { newsletterJid: jid, newsletterName: config?.menuChannelName || config?.botName || 'EDWARD MD', serverMessageId: -1 } }; })()
     };
     for (const participant of participants) {
         try {

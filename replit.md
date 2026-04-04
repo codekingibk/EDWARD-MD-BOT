@@ -9,7 +9,7 @@ EDWARD MD is a full-stack WhatsApp bot powered by Baileys, with a React dashboar
 - **WhatsApp**: @whiskeysockets/baileys (real WhatsApp connection)
 - **Backend**: Express 5 + Socket.IO
 - **Frontend**: React + Vite + Tailwind CSS
-- **Plugins**: MEGA-MD plugins (downloaded from GitHub, 110+ commands)
+- **Plugins**: 204+ backend plugin JS files, 847 plugin entries in dashboard
 - **Monorepo tool**: pnpm workspaces
 - **Node.js version**: 24
 - **Package manager**: pnpm
@@ -18,7 +18,8 @@ EDWARD MD is a full-stack WhatsApp bot powered by Baileys, with a React dashboar
 ## Key Features
 
 - Real WhatsApp connection via QR code or pairing code
-- 110+ plugins from MEGA-MD (alive, ping, calc, jokes, group management, etc.)
+- 847 plugins in dashboard covering all categories (AI, downloader, games, group tools, etc.)
+- 204+ backend plugin JS files fully loaded and functional
 - Live dashboard with stats, logs, plugin manager, terminal
 - Anti-spam, anti-call, anti-link, auto-read, auto-typing features
 - Welcome/goodbye messages for groups

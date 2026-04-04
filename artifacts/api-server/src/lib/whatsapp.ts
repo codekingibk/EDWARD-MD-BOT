@@ -438,33 +438,34 @@ export class WhatsAppManager {
     const memPercent = Math.round((memUsed / memTotal) * 1000) / 10;
     const cpuPercent = getCpuPercent();
 
-    // If DB is connected, use persisted user count (survives restarts)
-    const activeUsersSource = isDbConnected()
-      ? getUserCount().then(count => {
-          if (count > this.stats.activeUsers) this.stats.activeUsers = count;
-        }).catch(() => {})
-      : Promise.resolve();
+    // Sync active users from DB (DB count is the floor — session count can exceed it)
+    if (isDbConnected()) {
+      getUserCount().then(count => {
+        if (count > this.stats.activeUsers) this.stats.activeUsers = count;
+      }).catch(() => {});
+    }
 
-    activeUsersSource.finally(() => {
-      this.emit('stats', {
-        messagesReceived: this.stats.messagesReceived,
-        messagesSent: this.stats.messagesSent,
-        commandsExecuted: this.stats.commandsExecuted,
-        activeGroups: this.stats.activeGroups,
-        activeUsers: this.stats.activeUsers,
-        errorsToday: this.stats.errorsToday,
-        uptime,
-        startTime: this.stats.startTime,
-        memoryUsage: memPercent,
-        cpuUsage: cpuPercent,
-        memoryUsedMB: Math.round(memUsed / 1024 / 1024),
-        memoryTotalMB: Math.round(memTotal / 1024 / 1024),
-        history: {
-          messages: [...this.history.messages],
-          commands: [...this.history.commands],
-          users: [...this.history.users],
-        },
-      });
+    // Sync active groups from Baileys (already tracked via joinedGroups set)
+    this.stats.activeGroups = this.joinedGroups.size;
+
+    this.emit('stats', {
+      messagesReceived: this.stats.messagesReceived,
+      messagesSent: this.stats.messagesSent,
+      commandsExecuted: this.stats.commandsExecuted,
+      activeGroups: this.stats.activeGroups,
+      activeUsers: this.stats.activeUsers,
+      errorsToday: this.stats.errorsToday,
+      uptime,
+      startTime: this.stats.startTime,
+      memoryUsage: memPercent,
+      cpuUsage: cpuPercent,
+      memoryUsedMB: Math.round(memUsed / 1024 / 1024),
+      memoryTotalMB: Math.round(memTotal / 1024 / 1024),
+      history: {
+        messages: [...this.history.messages],
+        commands: [...this.history.commands],
+        users: [...this.history.users],
+      },
     });
   }
 
