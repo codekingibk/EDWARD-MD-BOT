@@ -199,6 +199,23 @@ function buildQuotedObject(contextInfo: any, chatId: string, sock: any): any | n
   return quoted;
 }
 
+function buildChannelContextInfo(config: Record<string, any>): any {
+  const channelName = config.menuChannelName || process.env.EDWARD_CHANNEL_NAME || 'EDWARD MD';
+  const channelUrl = config.channelUrl || process.env.EDWARD_CHANNEL_URL || 'https://whatsapp.com/channel/0029VbCKeh4JP20wrrsjuz0s';
+  return {
+    externalAdReply: {
+      title: channelName,
+      body: `📢 Follow the ${channelName} channel`,
+      sourceUrl: channelUrl,
+      mediaType: 1,
+      renderLargerThumbnail: false,
+      showAdAttribution: true,
+    },
+    forwardingScore: 1,
+    isForwarded: true,
+  };
+}
+
 function wrapCmdHandler(
   handler: (conn: any, mek: any, m: any, helpers: any) => Promise<void>
 ): PluginDef['handler'] {
@@ -214,8 +231,13 @@ function wrapCmdHandler(
     message.chat = chatId;
     message.quoted = quotedObj;
 
+    const channelCtx = buildChannelContextInfo(config);
+
     const reply = (text: string) =>
-      sock.sendMessage(chatId, { text: String(text) }, { quoted: message }).catch(() => {});
+      sock.sendMessage(chatId, {
+        text: String(text),
+        contextInfo: channelCtx,
+      }, { quoted: message }).catch(() => {});
     const react = (emoji: string) =>
       sock.sendMessage(chatId, { react: { text: emoji, key: message.key } }).catch(() => {});
 
@@ -227,7 +249,10 @@ function wrapCmdHandler(
       react: (emoji: string) =>
         sock.sendMessage(chatId, { react: { text: emoji, key: message.key } }).catch(() => {}),
       reply: (text: string) =>
-        sock.sendMessage(chatId, { text: String(text) }, { quoted: message }).catch(() => {}),
+        sock.sendMessage(chatId, {
+          text: String(text),
+          contextInfo: channelCtx,
+        }, { quoted: message }).catch(() => {}),
     };
 
     const inner = getInnerMessage(message);

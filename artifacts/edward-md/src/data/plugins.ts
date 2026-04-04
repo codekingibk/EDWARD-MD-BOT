@@ -500,6 +500,151 @@ export const defaultPlugins: Plugin[] = [
   p('ecchi',      'Ecchi',           'ecchi',       '.ecchi',              'Ecchi anime content (18+ only)',                'nsfw',false, 5),
   p('nsfw-fact',  'NSFW Fact',       'nsfwfact',   '.nsfwfact',            'Random NSFW fun fact (18+ only)',               'nsfw',false, 5),
   p('18plus',     '18+ Joke',        '18joke',     '.18joke',              'An adult-only joke (18+ only)',                 'nsfw',false, 5),
+
+  // ─── TEXT MANIPULATION ────────────────────────────────────────────────────
+  p('uppercase',  'Uppercase',       'upper',      '.upper <text>',        'Convert text to UPPERCASE',                     'text',true, 1),
+  p('lowercase',  'Lowercase',       'lower',      '.lower <text>',        'Convert text to lowercase',                     'text',true, 1),
+  p('reverse-txt','Reverse Text',    'rev',        '.rev <text>',          'Reverse the characters in text',                'text',true, 1),
+  p('bold-txt',   'Bold Text',       'bold2',      '.bold2 <text>',        'Make text bold using Unicode',                  'text',true, 1),
+  p('italic-txt', 'Italic Text',     'italic2',    '.italic2 <text>',      'Make text italic using Unicode',                'text',true, 1),
+  p('strikethr',  'Strikethrough',   'strike2',    '.strike2 <text>',      'Add strikethrough to text',                     'text',true, 1),
+  p('smallcaps',  'Small Caps',      'smallcaps',  '.smallcaps <text>',    'Convert text to ꜱᴍᴀʟʟ ᴄᴀᴘꜱ style',            'text',true, 1),
+  p('cursive-t',  'Cursive Text',    'cursive',    '.cursive <text>',      'Convert text to 𝒸𝓊𝓇𝓈𝒾𝓋𝑒 style',              'text',true, 1),
+  p('bubble-txt', 'Bubble Text',     'bubble',     '.bubble <text>',       'Convert text to ⓑⓤⓑⓑⓛⓔ style',              'text',true, 1),
+  p('vaporwave',  'Vaporwave',       'vapor',      '.vapor <text>',        'Convert text to ＡＥＳＴＨＥＴＩＣ style',      'text',true, 1),
+  p('zalgo-txt',  'Zalgo Text',      'zalgo',      '.zalgo <text>',        'Make text look corrupted/zalgo',                'text',false, 1),
+  p('mirror-txt', 'Mirror Text',     'mirror',     '.mirror <text>',       'Create mirror/flip text effect',                'text',true, 1),
+  p('scramble',   'Scramble Text',   'scramble',   '.scramble <text>',     'Randomly scramble the characters in text',      'text',true, 1),
+  p('morse2',     'Text to Morse',   'tomorse',    '.tomorse <text>',      'Convert text to Morse code',                    'text',true, 2),
+  p('frommorse',  'Morse to Text',   'frommorse',  '.frommorse <code>',    'Decode Morse code to text',                     'text',true, 2),
+  p('binary-enc', 'Text to Binary',  'tobin',      '.tobin <text>',        'Convert text to binary code',                   'text',true, 2),
+  p('frombin',    'Binary to Text',  'frombin',    '.frombin <binary>',    'Decode binary code to text',                    'text',true, 2),
+  p('leet-speak', 'Leet Speak',      'leet',       '.leet <text>',         'Convert text to l33t sp34k',                    'text',true, 1),
+  p('pig-latin',  'Pig Latin',       'piglatin',   '.piglatin <text>',     'Convert text to Pig Latin',                    'text',true, 1),
+  p('camelcase',  'CamelCase',       'camel',      '.camel <text>',        'Convert text to camelCase format',              'text',true, 1),
+  p('snakecase',  'snake_case',      'snake',      '.snake <text>',        'Convert text to snake_case format',             'text',true, 1),
+  p('count-chars','Count Chars',     'countchars', '.countchars <text>',   'Count characters, words, and lines in text',    'text',true, 1),
+  p('palindrome2','Make Palindrome', 'mkpal',      '.mkpal <word>',        'Create a palindrome from a word',               'text',true, 1),
+
+  // ─── RELIGION ────────────────────────────────────────────────────────────
+  p('quran',      'Quran Verse',     'quran',      '.quran <surah:ayah>',  'Get a verse from the Holy Quran',               'tools',true, 3),
+  p('hadith',     'Hadith',          'hadith',     '.hadith',              'Get a random authentic hadith',                 'tools',true, 5),
+  p('prayer',     'Prayer Times',    'prayer',     '.prayer <city>',       'Get Islamic prayer times for a city',           'tools',true, 5),
+  p('hijri',      'Hijri Date',      'hijri',      '.hijri',               'Get the current Hijri (Islamic) date',          'tools',true, 2),
+  p('dua',        'Daily Dua',       'dua',        '.dua',                 'Get a random Islamic dua/supplication',         'tools',true, 3),
+  p('asmaul',     'Asmaul Husna',    'asmaul',     '.asmaul <number>',     'Get one of the 99 names of Allah',              'tools',true, 2),
+  p('bible-verse','Bible Verse',     'bible',      '.bible <book:ch:v>',   'Get a Bible verse',                             'tools',true, 3),
+  p('psalm',      'Psalm',           'psalm',      '.psalm <number>',      'Get a Psalm from the Bible',                    'tools',true, 3),
+
+  // ─── SOCIAL CARDS ────────────────────────────────────────────────────────
+  p('profilecard','Profile Card',    'profilecard','.profilecard',         'Generate your profile card image',              'social',true, 5),
+  p('rankcard',   'Rank Card',       'rankcard',   '.rankcard [@user]',    'Generate a rank card for a user',               'social',true, 5),
+  p('birthdaycrd','Birthday Card',   'birthday',   '.birthday @user',      'Send a beautiful birthday card',                'social',true, 5),
+  p('anniversary','Anniversary Card','anniversary','.anniversary @user',   'Send an anniversary message card',              'social',true, 5),
+  p('welcomecrd', 'Welcome Card',    'welcomecard','.welcomecard @user',   'Generate a welcome card for a new member',      'social',true, 5),
+  p('leavecrd',   'Leave Card',      'leavecard',  '.leavecard @user',     'Generate a goodbye card for a leaving member',  'social',true, 5),
+
+  // ─── ANIMAL FUN ──────────────────────────────────────────────────────────
+  p('catfact',    'Cat Fact',        'catfact',    '.catfact',             'Get a random fun fact about cats',              'fun',true, 3),
+  p('dogfact',    'Dog Fact',        'dogfact',    '.dogfact',             'Get a random fun fact about dogs',              'fun',true, 3),
+  p('bearfact',   'Bear Fact',       'bearfact',   '.bearfact',            'Get a random fun fact about bears',             'fun',true, 3),
+  p('wolfact',    'Wolf Fact',       'wolffact',   '.wolffact',            'Get a random fact about wolves',                'fun',true, 3),
+  p('pandafact',  'Panda Fact',      'pandafact',  '.pandafact',           'Get a random fact about pandas',                'fun',true, 3),
+  p('lionact',    'Lion Fact',       'lionfact',   '.lionfact',            'Get a random fact about lions',                 'fun',true, 3),
+  p('elephfact',  'Elephant Fact',   'elephfact',  '.elephfact',           'Get a random fact about elephants',             'fun',true, 3),
+  p('sharkfact',  'Shark Fact',      'sharkfact',  '.sharkfact',           'Get a random fact about sharks',                'fun',true, 3),
+  p('octofact',   'Octopus Fact',    'octofact',   '.octofact',            'Get a random fact about octopuses',             'fun',true, 3),
+  p('spacefact',  'Space Fact',      'spacefact',  '.spacefact',           'Get a mind-blowing fact about space',           'fun',true, 3),
+
+  // ─── WEATHER/ENVIRONMENT ─────────────────────────────────────────────────
+  p('earthquake', 'Earthquake',      'quake',      '.quake',               'Get latest earthquake reports worldwide',       'tools',true,10),
+  p('airquality', 'Air Quality',     'aqi',        '.aqi <city>',          'Get air quality index for a city',              'tools',true, 5),
+  p('uv-index',   'UV Index',        'uv',         '.uv <city>',           'Get the UV index for a city',                   'tools',true, 5),
+  p('humidity',   'Humidity',        'humidity',   '.humidity <city>',     'Get humidity levels for a city',                'tools',true, 5),
+  p('sunrise',    'Sunrise/Sunset',  'sunrise',    '.sunrise <city>',      'Get sunrise and sunset times for a city',       'tools',true, 5),
+
+  // ─── CRYPTO/FINANCE ───────────────────────────────────────────────────────
+  p('crypto',     'Crypto Price',    'crypto',     '.crypto <coin>',       'Get cryptocurrency price and market data',      'tools',true, 5),
+  p('bitcoin',    'Bitcoin Price',   'btc',        '.btc',                 'Get current Bitcoin price',                     'tools',true, 5),
+  p('ethereum',   'Ethereum Price',  'eth',        '.eth',                 'Get current Ethereum price',                    'tools',true, 5),
+  p('forex',      'Forex Rate',      'forex',      '.forex <pair>',        'Get foreign exchange rate e.g. USD/EUR',        'tools',true, 5),
+  p('gold-price', 'Gold Price',      'gold',       '.gold',                'Get current gold price per ounce',              'tools',true, 5),
+  p('stockprice', 'Stock Price',     'stock',      '.stock <ticker>',      'Get stock price for a company ticker',          'tools',true, 5),
+
+  // ─── DEVELOPER TOOLS ─────────────────────────────────────────────────────
+  p('uuid',       'Generate UUID',   'uuid',       '.uuid',                'Generate a random UUID/GUID',                   'tools',true, 1),
+  p('passgen',    'Password Gen',    'passgen',    '.passgen [length]',    'Generate a secure random password',             'tools',true, 1),
+  p('color-rand', 'Random Color',    'randcolor',  '.randcolor',           'Generate a random color with HEX/RGB',          'tools',true, 1),
+  p('barcode',    'Barcode',         'barcode',    '.barcode <text>',      'Generate a barcode from text',                  'tools',true, 3),
+  p('lorem',      'Lorem Ipsum',     'lorem',      '.lorem [paragraphs]',  'Generate lorem ipsum placeholder text',         'tools',true, 1),
+  p('json-valid', 'Validate JSON',   'jsonval',    '.jsonval <json>',      'Validate and format a JSON string',             'tools',true, 2),
+  p('regex-test', 'Regex Test',      'regex',      '.regex <pattern> <text>','Test a regex pattern against text',           'tools',true, 2),
+  p('hash-md5',   'MD5 Hash',        'md5',        '.md5 <text>',          'Generate MD5 hash of text',                     'tools',true, 1),
+  p('hash-sha',   'SHA256 Hash',     'sha256',     '.sha256 <text>',       'Generate SHA256 hash of text',                  'tools',true, 1),
+  p('timestamp',  'Unix Timestamp',  'timestamp',  '.timestamp [date]',    'Get Unix timestamp for a date',                 'tools',true, 1),
+  p('cron-exp',   'Cron Explainer',  'cron',       '.cron <expression>',   'Explain a cron expression in plain English',    'tools',true, 2),
+  p('diff-tool',  'Text Diff',       'diff',       '.diff <text1> | <text2>','Find differences between two texts',          'tools',true, 3),
+
+  // ─── ANTI-SPAM/PROTECTION (more) ─────────────────────────────────────────
+  p('antinsfw2',  'Anti-NSFW+',      'antinsfw',   '.antinsfw <on|off>',   'Enable NSFW content filter in group',           'group',true, 5),
+  p('antibadwd2', 'Anti-BadWord+',   'antibadword2','.antibadword2 <on|off>','Advanced profanity filter for group',         'group',true, 5),
+  p('antifake',   'Anti-Fake',       'antifake',   '.antifake <on|off>',   'Block messages with fake news keywords',        'group',true, 5),
+  p('slowmode',   'Slow Mode',       'slowmode',   '.slowmode <seconds>',  'Set group slow mode cooldown',                  'group',true, 5),
+  p('floodprot',  'Flood Protect',   'floodprot',  '.floodprot <on|off>',  'Enable flood/rapid-message protection',         'group',true, 5),
+  p('warnlist',   'Warn List',       'warnlist',   '.warnlist',            'List all warned members in the group',          'group',true, 3),
+  p('clearwarn',  'Clear Warnings',  'clearwarn',  '.clearwarn @user',     'Clear warnings for a specific member',          'group',true, 3),
+  p('setwelc2',   'Custom Welcome',  'setwelcome2','.setwelcome2 <text>',  'Set a custom welcome message template',         'group',true, 5),
+  p('setleave2',  'Custom Leave',    'setleave',   '.setleave <text>',     'Set a custom leave message template',           'group',true, 5),
+  p('grouplock',  'Lock Group',      'lockgroup',  '.lockgroup',           'Lock group so only admins can send messages',   'group',true, 5),
+  p('groupunlck', 'Unlock Group',    'unlockgroup','.unlockgroup',         'Unlock group to allow all members to send',     'group',true, 5),
+
+  // ─── MUSIC/AUDIO EXTENDED ────────────────────────────────────────────────
+  p('radio',      'Internet Radio',  'radio',      '.radio <station>',     'Get stream URL for an internet radio station', 'music',true, 3),
+  p('spotify',    'Spotify Search',  'spotifysrch','.spotifysrch <song>',  'Search and get Spotify track link',             'music',true, 5),
+  p('shazam',     'Song Identifier', 'shazam',     '.shazam',              'Identify a song from audio message',            'music',true, 5),
+  p('newrelease', 'New Releases',    'newrelease',  '.newrelease',          'Get latest music releases',                     'music',true,10),
+  p('topchart',   'Top Charts',      'topchart',   '.topchart <country>',  'Get music top charts for a country',            'music',true,10),
+
+  // ─── FOOD & RECIPE ───────────────────────────────────────────────────────
+  p('recipe2',    'Random Recipe',   'randomrecipe','.randomrecipe',        'Get a random recipe to cook',                   'tools',true, 5),
+  p('nutrition',  'Nutrition Info',  'nutrition',  '.nutrition <food>',    'Get nutritional information for a food',        'tools',true, 5),
+  p('calorie',    'Calorie Count',   'calorie',    '.calorie <food>',      'Get calorie count for a food item',             'tools',true, 5),
+  p('cocktail',   'Cocktail Recipe', 'cocktail',   '.cocktail <name>',     'Get a cocktail recipe',                         'tools',true, 5),
+  p('meal-plan',  'Meal Plan',       'mealplan',   '.mealplan <diet>',     'Generate a simple meal plan',                   'tools',true, 5),
+
+  // ─── HEALTH & FITNESS ────────────────────────────────────────────────────
+  p('bmi',        'BMI Calculator',  'bmi',        '.bmi <kg> <cm>',       'Calculate your Body Mass Index',                'tools',true, 2),
+  p('waterintake','Water Intake',    'water',      '.water <kg>',          'Calculate daily water intake recommendation',   'tools',true, 2),
+  p('sleeptips',  'Sleep Tips',      'sleep',      '.sleep',               'Get healthy sleep tips and recommendations',     'tools',true, 5),
+  p('workout',    'Workout Tip',     'workout',    '.workout',             'Get a random workout exercise tip',              'tools',true, 5),
+
+  // ─── TRAVEL & GEOGRAPHY ──────────────────────────────────────────────────
+  p('country',    'Country Info',    'country',    '.country <name>',      'Get information about a country',               'info',true, 3),
+  p('capital',    'Capital City',    'capital',    '.capital <country>',   'Get the capital city of a country',             'info',true, 2),
+  p('flag',       'Country Flag',    'flag',       '.flag <country>',      'Get the flag emoji of a country',               'info',true, 2),
+  p('currency2',  'Currency Info',   'currencies', '.currencies <country>','Get the currency used in a country',            'info',true, 2),
+  p('timezone3',  'World Timezone',  'tz',         '.tz <city>',           'Get the current time in any city',              'tools',true, 2),
+  p('flights',    'Flight Status',   'flight',     '.flight <code>',       'Get flight status by flight code',              'tools',true, 5),
+
+  // ─── PREMIUM FEATURES ────────────────────────────────────────────────────
+  p('prem-chan',  'Premium Channel', 'setmychannel','.setmychannel <id>',  'Set your custom channel for message forwarding','owner',true, 5),
+  p('prem-info',  'Premium Info',    'preminfo',   '.preminfo',            'View your premium subscription details',        'tools',true, 3),
+  p('prem-key2',  'Use Premium Key', 'premkey',    '.premkey <key>',       'Activate a premium key for this bot',           'tools',true, 5),
+  p('channel-id', 'Channel ID',      'channelid',  '.channelid',           'Get the forwarding channel ID in use',          'owner',true, 2),
+
+  // ─── AUTOMATION ──────────────────────────────────────────────────────────
+  p('autofwd',    'Auto Forward',    'autofwd',    '.autofwd <on|off>',    'Auto-forward messages from newsletter channel', 'owner',true, 5),
+  p('schedmsg',   'Schedule Msg',    'schedule',   '.schedule <time> <msg>','Schedule a message to be sent later',          'owner',true, 5),
+  p('autopost',   'Auto Post',       'autopost',   '.autopost <on|off>',   'Auto-post channel updates to groups',           'owner',true, 5),
+  p('autorep2',   'Advanced Reply',  'autorep2',   '.autorep2 <trigger>|<response>','Advanced auto-reply with patterns',    'owner',true, 5),
+
+  // ─── INFORMATION/LOOKUP EXTENDED ─────────────────────────────────────────
+  p('dictionary', 'Dictionary',      'dict',       '.dict <word>',         'Get full dictionary entry for a word',          'info',true, 3),
+  p('thesaurus',  'Thesaurus',       'thesaurus',  '.thesaurus <word>',    'Find similar and related words',                'info',true, 3),
+  p('translate2', 'Smart Translate', 'tr2',        '.tr2 <lang> <text>',   'Translate text to any language',                'tools',true, 3),
+  p('fact2',      'Fun Fact',        'fact2',      '.fact2',               'Get a random interesting fun fact',             'fun',true, 3),
+  p('today-hist', 'Today in History','todayhistory','.todayhistory',        'Get events that happened today in history',     'info',true, 5),
+  p('famous-bday','Famous Birthday', 'famousbday', '.famousbday <date>',   'Famous people born on a specific date',         'info',true, 5),
 ];
 
 export function getPluginsByCategory(plugins: Plugin[], category: string): Plugin[] {

@@ -113,9 +113,10 @@ let botConfig: Record<string, any> = {
   adminEmail: '',
   menuImageUrl: '',
   menuAudioUrl: '',
-  menuChannelName: '',
-  menuNewsletterId: '',
+  menuChannelName: 'EDWARD MD',
+  menuNewsletterId: '120363406706906138@newsletter',
   menuType: 'image',
+  channelUrl: 'https://whatsapp.com/channel/0029VbCKeh4JP20wrrsjuz0s',
 };
 
 router.get('/plugins', (_req, res) => {

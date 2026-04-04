@@ -58,6 +58,8 @@ export interface BotConfig {
   menuChannelName: string;
   menuNewsletterId: string;
   menuType: 'text' | 'image';
+  // Channel Forwarding (premium = custom channel, free = EDWARD MD default)
+  channelUrl: string;
 }
 
 export interface LogEntry {
@@ -77,7 +79,7 @@ export interface NotificationItem {
   id: string; title: string; message: string; type: 'info' | 'success' | 'warning' | 'error'; timestamp: number; read: boolean;
 }
 
-type Page = 'login' | 'register' | 'server-select' | 'pairing' | 'dashboard' | 'plugins' | 'settings' | 'logs' | 'profile' | 'community';
+type Page = 'login' | 'register' | 'server-select' | 'pairing' | 'dashboard' | 'plugins' | 'settings' | 'logs' | 'errors' | 'profile' | 'community';
 
 interface AppState {
   page: Page; setPage: (p: Page) => void;
@@ -110,8 +112,11 @@ const defaultConfig: BotConfig = {
   goodbyeMessage: true, antiDelete: true, antiViewOnce: true, autoReact: false,
   statusSeen: true, statusReply: false, selfMode: false, alwaysOnline: true,
   serverTier: 'free', adminEmail: '',
-  menuImageUrl: '', menuAudioUrl: '', menuChannelName: '', menuNewsletterId: '',
+  menuImageUrl: '', menuAudioUrl: '',
+  menuChannelName: 'EDWARD MD',
+  menuNewsletterId: '120363406706906138@newsletter',
   menuType: 'image',
+  channelUrl: 'https://whatsapp.com/channel/0029VbCKeh4JP20wrrsjuz0s',
 };
 
 const AppContext = createContext<AppState | null>(null);

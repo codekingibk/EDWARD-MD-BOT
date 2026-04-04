@@ -7,15 +7,16 @@ import DashboardHome from './components/DashboardHome';
 import Plugins from './components/Plugins';
 import Settings from './components/Settings';
 import Logs from './components/Logs';
+import Errors from './components/Errors';
 import Profile from './components/Profile';
 import {
   LayoutDashboard, Puzzle, Settings as SettingsIcon, ScrollText,
   LogOut, Bot, Menu, ChevronLeft, Wifi, WifiOff, Bell,
-  ExternalLink, Heart, UserCircle, X, Check, Users
+  ExternalLink, Heart, UserCircle, X, Check, Users, Bug
 } from 'lucide-react';
 import { useState } from 'react';
 
-type Page = 'dashboard' | 'plugins' | 'settings' | 'logs' | 'profile' | 'community';
+type Page = 'dashboard' | 'plugins' | 'settings' | 'logs' | 'errors' | 'profile' | 'community';
 
 function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { notifications, dismissNotification } = useApp();
@@ -60,11 +61,13 @@ function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => vo
 
 function Sidebar() {
   const { page, setPage, sidebarOpen, setSidebarOpen, botConfig, isConnected, logout, stats, currentUser } = useApp();
+  const errorCount = useApp().logs.filter(l => l.level === 'error').length;
   const navItems: { id: Page; icon: any; label: string; badge?: string }[] = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'plugins', icon: Puzzle, label: 'Plugins' },
     { id: 'settings', icon: SettingsIcon, label: 'Settings' },
     { id: 'logs', icon: ScrollText, label: 'Logs', badge: 'Live' },
+    { id: 'errors', icon: Bug, label: 'Errors', badge: errorCount > 0 ? String(errorCount) : undefined },
     { id: 'community', icon: Users, label: 'Community' },
     { id: 'profile', icon: UserCircle, label: 'Profile' },
   ];
@@ -205,6 +208,7 @@ function DashboardLayout() {
           {page === 'plugins' && <Plugins />}
           {page === 'settings' && <Settings />}
           {page === 'logs' && <Logs />}
+          {page === 'errors' && <Errors />}
           {page === 'community' && <Community />}
           {page === 'profile' && <Profile />}
         </main>

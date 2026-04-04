@@ -334,27 +334,83 @@ export default function Settings() {
           </div>
 
           {/* Channel Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-border">
-            <div>
-              <label className="text-xs font-medium text-text-secondary mb-1.5 block flex items-center gap-1.5"><Tv2 className="w-3.5 h-3.5" />Channel / Newsletter Name</label>
-              <input
-                type="text"
-                value={botConfig.menuChannelName || ''}
-                onChange={e => updateConfig('menuChannelName', e.target.value)}
-                placeholder="e.g. EDWARD MD Official"
-                className="w-full bg-bg-input border border-border rounded-xl py-2.5 px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-wa-green/50 transition-all"
-              />
+          <div className="pt-2 border-t border-border space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-text-secondary flex items-center gap-1.5">
+                <Tv2 className="w-3.5 h-3.5 text-wa-green" />
+                Forward Channel — Messages appear forwarded from this channel
+              </p>
+              {!isPremium && (
+                <span className="text-[10px] bg-accent-orange/10 text-accent-orange border border-accent-orange/20 px-2 py-0.5 rounded-full font-medium">
+                  Premium: Custom Channel
+                </span>
+              )}
             </div>
-            <div>
-              <label className="text-xs font-medium text-text-secondary mb-1.5 block flex items-center gap-1.5"><Hash className="w-3.5 h-3.5" />Newsletter Channel ID</label>
-              <input
-                type="text"
-                value={botConfig.menuNewsletterId || ''}
-                onChange={e => updateConfig('menuNewsletterId', e.target.value)}
-                placeholder="e.g. 120363xxxxxxxx@newsletter"
-                className="w-full bg-bg-input border border-border rounded-xl py-2.5 px-3 text-sm text-text-primary placeholder:text-text-muted font-mono focus:outline-none focus:border-wa-green/50 transition-all"
-              />
-            </div>
+
+            {!isPremium ? (
+              <div className="bg-bg-input rounded-xl p-3 border border-border space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-wa-green/15 flex items-center justify-center">
+                    <Tv2 className="w-3.5 h-3.5 text-wa-green" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-text-primary">EDWARD MD (Default Channel)</p>
+                    <a
+                      href="https://whatsapp.com/channel/0029VbCKeh4JP20wrrsjuz0s"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-wa-green hover:underline font-mono"
+                    >
+                      whatsapp.com/channel/0029VbCKeh4JP20wrrsjuz0s
+                    </a>
+                  </div>
+                </div>
+                <p className="text-[10px] text-text-muted pl-9">
+                  All bot replies will be attributed to the EDWARD MD channel. Upgrade to Premium to use your own channel.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="bg-wa-green/5 border border-wa-green/20 rounded-xl p-3">
+                  <p className="text-[10px] text-wa-green font-medium flex items-center gap-1.5 mb-2">
+                    <Crown className="w-3 h-3" />
+                    Premium: Set your own channel below — bot replies will be forwarded from it
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-text-secondary mb-1.5 block">Channel Name</label>
+                    <input
+                      type="text"
+                      value={botConfig.menuChannelName || ''}
+                      onChange={e => updateConfig('menuChannelName', e.target.value)}
+                      placeholder="e.g. My Bot Channel"
+                      className="w-full bg-bg-input border border-border rounded-xl py-2.5 px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-wa-green/50 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-text-secondary mb-1.5 block">Channel ID (@newsletter)</label>
+                    <input
+                      type="text"
+                      value={botConfig.menuNewsletterId || ''}
+                      onChange={e => updateConfig('menuNewsletterId', e.target.value)}
+                      placeholder="120363xxxxxxxx@newsletter"
+                      className="w-full bg-bg-input border border-border rounded-xl py-2.5 px-3 text-sm text-text-primary placeholder:text-text-muted font-mono focus:outline-none focus:border-wa-green/50 transition-all"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-text-secondary mb-1.5 block">Channel Link URL</label>
+                  <input
+                    type="url"
+                    value={botConfig.channelUrl || ''}
+                    onChange={e => updateConfig('channelUrl', e.target.value)}
+                    placeholder="https://whatsapp.com/channel/..."
+                    className="w-full bg-bg-input border border-border rounded-xl py-2.5 px-3 text-sm text-text-primary placeholder:text-text-muted font-mono focus:outline-none focus:border-wa-green/50 transition-all"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
