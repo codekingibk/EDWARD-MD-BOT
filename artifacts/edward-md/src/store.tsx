@@ -79,7 +79,7 @@ export interface NotificationItem {
   id: string; title: string; message: string; type: 'info' | 'success' | 'warning' | 'error'; timestamp: number; read: boolean;
 }
 
-type Page = 'login' | 'register' | 'server-select' | 'pairing' | 'dashboard' | 'plugins' | 'settings' | 'logs' | 'errors' | 'profile' | 'community';
+type Page = 'login' | 'register' | 'server-select' | 'pairing' | 'dashboard' | 'plugins' | 'settings' | 'logs' | 'errors' | 'profile' | 'community' | 'contact';
 
 interface AppState {
   page: Page; setPage: (p: Page) => void;

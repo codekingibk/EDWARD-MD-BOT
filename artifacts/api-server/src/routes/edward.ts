@@ -679,8 +679,8 @@ router.get('/servers/public', async (_req, res) => {
         userCount: s.usersCount || 0,
         region: 'Africa/Lagos',
         features: s.plan === 'premium'
-          ? ['Unlimited commands', 'Priority support', '2000 users', '2GB storage', 'Custom prefix', 'All plugins']
-          : ['All bot commands', '500 users', '500MB storage', 'Community support'],
+          ? ['All plugins unlocked', 'Priority support', 'Up to 2000 users', '2GB storage', 'Custom prefix', 'Unlimited commands']
+          : ['Basic bot commands only', 'Up to 500 users', '500MB storage', 'Community support'],
         notes: s.notes || '',
         registeredAt: s.registeredAt,
       };
@@ -696,7 +696,7 @@ router.get('/servers/public', async (_req, res) => {
       usedStorageMB: 0,
       userCount: isDbConnected() ? await getUserCount() : 0,
       region: 'Africa/Lagos',
-      features: ['All bot commands', '500 users', '500MB storage', 'Community support'],
+      features: ['Basic bot commands only', 'Up to 500 users', '500MB storage', 'Community support'],
       notes: 'Default public server',
       registeredAt: new Date().toISOString(),
     };

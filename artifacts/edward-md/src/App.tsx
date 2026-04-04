@@ -3,6 +3,7 @@ import Login from './components/Login';
 import Pairing from './components/Pairing';
 import ServerSelect from './components/ServerSelect';
 import Community from './components/Community';
+import Contact from './components/Contact';
 import DashboardHome from './components/DashboardHome';
 import Plugins from './components/Plugins';
 import Settings from './components/Settings';
@@ -12,11 +13,11 @@ import Profile from './components/Profile';
 import {
   LayoutDashboard, Puzzle, Settings as SettingsIcon, ScrollText,
   LogOut, Bot, Menu, ChevronLeft, Wifi, WifiOff, Bell,
-  ExternalLink, Heart, UserCircle, X, Check, Users, Bug
+  ExternalLink, Heart, UserCircle, X, Check, Users, Bug, Mail
 } from 'lucide-react';
 import { useState } from 'react';
 
-type Page = 'dashboard' | 'plugins' | 'settings' | 'logs' | 'errors' | 'profile' | 'community';
+type Page = 'dashboard' | 'plugins' | 'settings' | 'logs' | 'errors' | 'profile' | 'community' | 'contact';
 
 function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { notifications, dismissNotification } = useApp();
@@ -69,6 +70,7 @@ function Sidebar() {
     { id: 'logs', icon: ScrollText, label: 'Logs', badge: 'Live' },
     { id: 'errors', icon: Bug, label: 'Errors', badge: errorCount > 0 ? String(errorCount) : undefined },
     { id: 'community', icon: Users, label: 'Community' },
+    { id: 'contact', icon: Mail, label: 'Contact' },
     { id: 'profile', icon: UserCircle, label: 'Profile' },
   ];
   const formatUptime = (ms: number) => { const s = Math.floor(ms / 1000); const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); return h > 0 ? `${h}h ${m}m` : `${m}m`; };
@@ -210,6 +212,7 @@ function DashboardLayout() {
           {page === 'logs' && <Logs />}
           {page === 'errors' && <Errors />}
           {page === 'community' && <Community />}
+          {page === 'contact' && <Contact />}
           {page === 'profile' && <Profile />}
         </main>
         <footer className="px-6 py-4 border-t border-border text-center">

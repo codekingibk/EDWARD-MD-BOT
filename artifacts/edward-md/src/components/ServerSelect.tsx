@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useApp } from '../store';
 import {
   Server, Crown, Zap, Users, HardDrive, CheckCircle, Key, ChevronRight,
-  Bot, RefreshCw, AlertCircle, Star, Shield, Lock, Wifi, Globe
+  Bot, RefreshCw, AlertCircle, Star, Shield, Lock, Wifi, Globe, MessageCircle
 } from 'lucide-react';
 
 interface ServerInfo {
@@ -74,15 +74,22 @@ function ServerCard({ server, onSelect }: { server: ServerInfo; onSelect: () => 
       </div>
 
       <div className="mb-4">
-        <p className="text-[10px] text-text-muted uppercase tracking-wider font-medium mb-2">Features</p>
+        <p className="text-[10px] text-text-muted uppercase tracking-wider font-medium mb-2">
+          {isPremium ? 'Included Features' : 'Free Tier Limits'}
+        </p>
         <div className="space-y-1">
           {server.features.map((f, i) => (
             <div key={i} className="flex items-center gap-1.5">
-              <CheckCircle className="w-3 h-3 text-wa-green shrink-0" />
+              <CheckCircle className={`w-3 h-3 shrink-0 ${isPremium ? 'text-accent-orange' : 'text-wa-green'}`} />
               <span className="text-[11px] text-text-secondary">{f}</span>
             </div>
           ))}
         </div>
+        {!isPremium && (
+          <p className="text-[10px] text-text-muted mt-2 italic">
+            Contact admin for a premium key to unlock all features.
+          </p>
+        )}
       </div>
 
       <button
@@ -299,6 +306,26 @@ export default function ServerSelect() {
                 <p className="text-text-muted text-sm">The admin hasn't set up any servers yet. Please try again later.</p>
               </div>
             )}
+
+            <div className="mt-6 glass rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-3 text-center sm:text-left">
+              <div className="w-9 h-9 rounded-xl bg-[#25D366]/15 flex items-center justify-center shrink-0">
+                <MessageCircle className="w-5 h-5 text-[#25D366]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-text-primary">Want full access?</p>
+                <p className="text-xs text-text-muted">Contact the admin on WhatsApp or Telegram to get a premium key.</p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <a href="https://wa.me/2347019706826" target="_blank" rel="noopener noreferrer"
+                   className="px-3 py-2 rounded-xl bg-[#25D366]/15 text-[#25D366] text-xs font-medium hover:bg-[#25D366]/25 transition-colors">
+                  WhatsApp
+                </a>
+                <a href="https://t.me/IBUKUNHASBIGBALLS" target="_blank" rel="noopener noreferrer"
+                   className="px-3 py-2 rounded-xl bg-[#229ED9]/15 text-[#229ED9] text-xs font-medium hover:bg-[#229ED9]/25 transition-colors">
+                  Telegram
+                </a>
+              </div>
+            </div>
           </>
         )}
       </div>
