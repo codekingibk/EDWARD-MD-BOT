@@ -29,6 +29,7 @@ export interface PluginContext {
   isGroup: boolean;
   isOwner: boolean;
   isAdmin: boolean;
+  isBotAdmin: boolean;
   config: Record<string, any>;
   channelInfo?: Record<string, any>;
   pluginStates: Record<string, boolean>;
