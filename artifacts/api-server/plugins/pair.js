@@ -1,4 +1,4 @@
-const WEBSITE = process.env['BOT_WEBSITE'] || 'https://edward-md.replit.app';
+const WEBSITE = process.env['BOT_WEBSITE'] || 'https://edward-md-lr5l.onrender.com';
 
 export default {
     command: 'pair',
@@ -8,15 +8,6 @@ export default {
     usage: '.pair 2348012345678',
     async handler(sock, message, args, context) {
         const { chatId } = context;
-        const forwardInfo = {
-            forwardingScore: 1,
-            isForwarded: true,
-            forwardedNewsletterMessageInfo: {
-                newsletterJid: '120363319098372999@newsletter',
-                newsletterName: 'EDWARD MD',
-                serverMessageId: -1
-            }
-        };
 
         const query = args.join('').trim();
         if (!query) {
@@ -40,7 +31,6 @@ export default {
 
             return await sock.sendMessage(chatId, {
                 text: guideText,
-                contextInfo: forwardInfo,
             }, { quoted: message });
         }
 
@@ -48,17 +38,14 @@ export default {
         if (number.length < 10 || number.length > 15) {
             return await sock.sendMessage(chatId, {
                 text: `❌ *Invalid Format*\nPlease provide the number with country code but without + or spaces.\n\nExample: *.pair 2348012345678*`,
-                contextInfo: forwardInfo,
             }, { quoted: message });
         }
 
         await sock.sendMessage(chatId, {
             text: `⚡ *Requesting pairing code from EDWARD MD server...*`,
-            contextInfo: forwardInfo,
         }, { quoted: message });
 
         try {
-            // Call local API server to generate pairing code
             const apiBase = `http://localhost:${process.env['PORT'] || 8080}`;
             const response = await fetch(`${apiBase}/api/connect/code`, {
                 method: 'POST',
@@ -84,7 +71,6 @@ export default {
 
                 await sock.sendMessage(chatId, {
                     text: successText,
-                    contextInfo: forwardInfo,
                 }, { quoted: message });
             } else {
                 throw new Error(`Server responded with ${response.status}`);
@@ -103,7 +89,6 @@ export default {
 
             await sock.sendMessage(chatId, {
                 text: errorText,
-                contextInfo: forwardInfo,
             }, { quoted: message });
         }
     }

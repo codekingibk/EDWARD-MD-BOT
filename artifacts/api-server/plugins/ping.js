@@ -1,4 +1,4 @@
-const WEBSITE = process.env['BOT_WEBSITE'] || 'https://edward-md.replit.app';
+const WEBSITE = process.env['BOT_WEBSITE'] || 'https://edward-md-lr5l.onrender.com';
 
 export default {
     command: 'ping',
@@ -13,19 +13,8 @@ export default {
         const config = context?.config || {};
         const botName = config.botName || 'EDWARD MD';
 
-        const forwardInfo = {
-            forwardingScore: 1,
-            isForwarded: true,
-            forwardedNewsletterMessageInfo: {
-                newsletterJid: '120363319098372999@newsletter',
-                newsletterName: 'EDWARD MD',
-                serverMessageId: -1
-            }
-        };
-
         const sent = await sock.sendMessage(chatId, {
             text: '⚡ Calculating response...',
-            contextInfo: forwardInfo,
         }, { quoted: message });
 
         const latency = Date.now() - start;
@@ -46,7 +35,6 @@ export default {
         await sock.sendMessage(chatId, {
             text,
             edit: sent.key,
-            contextInfo: forwardInfo,
         });
     }
 };

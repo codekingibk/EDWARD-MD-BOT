@@ -43,3 +43,7 @@ services:
       # ── Keep-alive self-ping ─────────────────────────────────────────────────
       - key: SELF_URL
         value: "https://edward-md-lr5l.onrender.com"
+
+      # ── Public bot website shown in commands (ping, pair, menu, etc.) ────────
+      - key: BOT_WEBSITE
+        value: "https://edward-md-lr5l.onrender.com"
