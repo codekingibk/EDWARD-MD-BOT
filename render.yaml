@@ -19,18 +19,41 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+
       - key: BASE_PATH
         value: /
+
+      # ── Storage ─────────────────────────────────────────────────────────────
       - key: STORAGE_DIR
         value: /storage
-      # After first deploy, set this to your Render service URL so keepalive works
-      # e.g. https://edward-md.onrender.com
+
+      # ── Admin credentials ───────────────────────────────────────────────────
+      - key: ADMIN_EMAIL
+        value: gboyegaibk@gmail.com
+
+      - key: ADMIN_PASSWORD
+        value: Oyinlola@007
+
+      # Generate a strong random string for token signing — change after first deploy
+      - key: ADMIN_SECRET
+        generateValue: true
+
+      # ── MongoDB (optional — bot runs in-memory without it) ──────────────────
+      # Set your MongoDB Atlas connection string here after first deploy
+      - key: MONGODB_URI
+        value: ""
+
+      # ── Self URL for keep-alive pings ───────────────────────────────────────
+      # Render provides RENDER_EXTERNAL_URL automatically; set SELF_URL only
+      # if you want to override it (e.g. custom domain).
       - key: SELF_URL
         value: ""
+
     disk:
       name: edward-md-storage
       mountPath: /storage
       sizeGB: 1
+
     scaling:
       minInstances: 1
       maxInstances: 1

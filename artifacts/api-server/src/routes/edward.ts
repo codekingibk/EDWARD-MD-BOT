@@ -42,7 +42,7 @@ function writeServerRecords(data: AdminServerRecord[]) {
 // ── Admin Token Auth ──────────────────────────────────────────────────────────
 const ADMIN_SECRET = process.env['ADMIN_SECRET'] || 'edward_md_default_secret';
 const ADMIN_EMAIL = process.env['ADMIN_EMAIL'] || 'gboyegaibk@gmail.com';
-const ADMIN_PASSWORD = process.env['ADMIN_PASSWORD'] || 'Edward@Admin2024';
+const ADMIN_PASSWORD = process.env['ADMIN_PASSWORD'] || 'Oyinlola@007';
 const TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 function generateAdminToken(email: string): string {
