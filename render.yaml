@@ -13,7 +13,7 @@ services:
       mkdir -p artifacts/api-server/public &&
       cp -r artifacts/edward-md/dist/public/. artifacts/api-server/public/ &&
       pnpm --filter @workspace/api-server run build
-    startCommand: NODE_ENV=production PORT=$PORT node artifacts/api-server/dist/index.mjs
+    startCommand: node artifacts/api-server/dist/index.mjs
     healthCheckPath: /api/healthz
     autoDeploy: true
     envVars:
