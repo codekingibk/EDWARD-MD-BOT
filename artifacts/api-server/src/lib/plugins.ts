@@ -3,11 +3,18 @@ import { readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import { logger } from './logger';
 import { createRequire } from 'module';
-import { pathToFileURL } from 'url';
+import { pathToFileURL, fileURLToPath } from 'url';
 import { Module } from 'module';
 import { getContentType, downloadMediaMessage } from '@whiskeysockets/baileys';
 
 const log = logger.child({ module: 'PluginLoader' });
+
+// Resolve paths relative to this built file so that downloaded plugins can
+// correctly resolve '../lib/...' imports regardless of process.cwd().
+// In production: __distDir = /opt/render/project/src/artifacts/api-server/dist/
+//                _apiServerDir = /opt/render/project/src/artifacts/api-server/
+const __distDir = path.dirname(fileURLToPath(import.meta.url));
+const _apiServerDir = path.resolve(__distDir, '..');
 
 export interface PluginDef {
   command: string;
@@ -35,8 +42,8 @@ export interface PluginContext {
   pluginStates: Record<string, boolean>;
 }
 
-const PLUGINS_DIR = path.resolve(process.cwd(), 'plugins');
-const PLUGINS_META_FILE = path.resolve(process.cwd(), 'plugins-meta.json');
+const PLUGINS_DIR = path.resolve(_apiServerDir, 'plugins');
+const PLUGINS_META_FILE = path.resolve(_apiServerDir, 'plugins-meta.json');
 const MEGA_MD_BASE = 'https://raw.githubusercontent.com/GlobalTechInfo/MEGA-MD/main/plugins';
 
 const PLUGIN_FILES = [
@@ -402,7 +409,7 @@ export async function loadPlugins(): Promise<void> {
   (globalThis as any)._pluginRegistry = [];
 
   // Access the command.js shim (CJS module) to drain registered cmd() commands
-  const requireRoot = createRequire(path.resolve(process.cwd(), 'package.json'));
+  const requireRoot = createRequire(path.resolve(_apiServerDir, 'package.json'));
   let commandShim: { drainRegistry: () => Array<{ meta: any; handler: any }> } | null = null;
   try {
     commandShim = requireRoot('./command') as any;
