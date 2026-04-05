@@ -79,9 +79,11 @@ export async function handleMessage(
       if (isGroup && rawSenderId.endsWith('@lid')) {
         try {
           const meta = await sock.groupMetadata(chatId);
-          const match = (meta.participants || []).find((p: any) =>
-            p.lid === rawSenderId || p.id === rawSenderId
-          );
+          const senderLidBare = rawSenderId.split('@')[0].split(':')[0];
+          const match = (meta.participants || []).find((p: any) => {
+            const pLidBare = (p.lid || '').split('@')[0].split(':')[0];
+            return pLidBare === senderLidBare;
+          });
           if (match?.id) senderId = match.id;
         } catch {}
       }
@@ -90,18 +92,22 @@ export async function handleMessage(
         ? config.ownerNumber.replace(/[^0-9]/g, '')
         : null;
       const senderNumber = senderId.split('@')[0].split(':')[0];
+
+      // Also check LID match: the bot's own LID belongs to the owner's account.
+      // When the owner sends from a group, their LID bare matches the bot's LID bare.
+      const botLidBare = (sock.user?.lid || '').split('@')[0].split(':')[0];
+      const senderLidBare = rawSenderId.endsWith('@lid')
+        ? rawSenderId.split('@')[0].split(':')[0]
+        : '';
+
       const isOwner = ownerNumber
-        ? (senderNumber === ownerNumber || senderId.includes(ownerNumber))
+        ? (senderNumber === ownerNumber ||
+           senderId.includes(ownerNumber) ||
+           (botLidBare && senderLidBare && senderLidBare === botLidBare))
         : false;
 
-      // Debug log for ownership resolution (remove after fix confirmed)
-      if (isGroup) {
-        log.info({ rawSenderId, senderId, senderNumber, ownerNumber, isOwner }, '[DEBUG] Sender/owner resolution');
-      }
-
       if (!fromMe) {
-        onStats({ messagesReceived: 1 });
-        // Persist user to MongoDB (non-blocking)
+        onStats({ messagesReceived: 1});
         upsertUser(senderId, undefined, 'main').catch(() => {});
       }
 
