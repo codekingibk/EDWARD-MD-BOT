@@ -1,0 +1,94 @@
+M
+My Workspace
+New Blueprint
+
+Search
+Ctrl+
+K
+
+New
+
+Upgrade
+
+
+g
+You are deploying from a Blueprint for codekingibk/EDWARD-MD-BOT
+Blueprint Name
+A unique name for your Blueprint.
+EDWARD MD
+Branch
+The repository branch with the render.yaml file.
+Branch
+main
+
+Blueprint Path
+The path to the Blueprint file in your repo (e.g., infra/render.yaml). Defaults to render.yaml at the root of your repository.
+render.yaml
+Review Blueprint configurations from codekingibk/EDWARD-MD-BOT.
+All future updates to your Blueprint file will be synced automatically, which may change your costs.
+A Blueprint file was found, but there was an issue.
+
+services[0]
+autoscaling is not supported for free tier services
+services[0]
+disks are not supported for free tier services
+services[0].scaling
+maxInstances must be greater than minInstances
+services[0].scaling
+At least one of targetCPUPercent or targetMemoryPercent must be an integer between 1 and 90
+
+services:
+  # ── Single Web Service: API + Frontend ──────────────────────────────────────
+  - type: web
+    name: edward-md
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: .
+    buildCommand: >-
+      npm install -g pnpm &&
+      pnpm install --frozen-lockfile &&
+      BASE_PATH=/ PORT=3000 pnpm --filter @workspace/edward-md run build &&
+      mkdir -p artifacts/api-server/public &&
+      cp -r artifacts/edward-md/dist/public/. artifacts/api-server/public/ &&
+      pnpm --filter @workspace/api-server run build
+    startCommand: node artifacts/api-server/dist/index.mjs
+    healthCheckPath: /api/healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BASE_PATH
+        value: /
+      # ── Storage ─────────────────────────────────────────────────────────────
+      - key: STORAGE_DIR
+        value: /storage
+      # ── Admin credentials ───────────────────────────────────────────────────
+      - key: ADMIN_EMAIL
+        value: gboyegaibk@gmail.com
+      - key: ADMIN_PASSWORD
+        value: Oyinlola@007
+      # Generate a strong random string for token signing — change after first deploy
+      - key: ADMIN_SECRET
+        generateValue: true
+      # ── MongoDB (optional — bot runs in-memory without it) ──────────────────
+      # Set your MongoDB Atlas connection string here after first deploy
+      - key: MONGODB_URI
+        value: ""
+      # ── Self URL for keep-alive pings ───────────────────────────────────────
+      # Render provides RENDER_EXTERNAL_URL automatically; set SELF_URL only
+      # if you want to override it (e.g. custom domain).
+      - key: SELF_URL
+        value: ""
+    disk:
+      name: edward-md-storage
+      mountPath: /storage
+      sizeGB: 1
+    scaling:
+      minInstances: 1
+      maxInstances: 1
+Retry
+0 services selected:
+
+Move
+
