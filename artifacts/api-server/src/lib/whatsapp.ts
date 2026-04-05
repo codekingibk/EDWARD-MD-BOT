@@ -6,7 +6,7 @@ import QRCode from 'qrcode';
 import { logger } from './logger';
 import path from 'path';
 import os from 'os';
-import { existsSync, mkdirSync, rmSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, rmSync } from 'fs';
 import { handleMessage, handleCall, type HandlerConfig } from './messageHandler';
 import { loadPlugins, getAllPluginsMeta } from './plugins';
 import { setNotifierSocket, setNotifierConfig, notifyConnected } from './notifier';
@@ -49,8 +49,10 @@ export class WhatsAppManager {
   private connectionMode: 'qr' | 'code' | null = null;
   private pluginsLoaded = false;
   private watchdogInterval: ReturnType<typeof setInterval> | null = null;
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private statsInterval: ReturnType<typeof setInterval> | null = null;
   private isConnected = false;
+  private activeSock: WASocket | null = null;
 
   private config: HandlerConfig = {
     prefix: '.',
@@ -101,12 +103,23 @@ export class WhatsAppManager {
 
   constructor(io: SocketIOServer) {
     this.io = io;
-    this.authDir = path.resolve(process.cwd(), 'wa-auth');
+    // Use STORAGE_DIR so auth survives same-session restarts on Render
+    const storageBase = process.env['STORAGE_DIR'] || process.cwd();
+    this.authDir = path.join(storageBase, 'wa-auth');
     if (!existsSync(this.authDir)) {
       mkdirSync(this.authDir, { recursive: true });
     }
     this.startStatsInterval();
     this.startHistoryTracking();
+  }
+
+  getAuthDir() { return this.authDir; }
+
+  hasExistingSession(): boolean {
+    try {
+      const files = readdirSync(this.authDir);
+      return files.some(f => f.endsWith('.json'));
+    } catch { return false; }
   }
 
   private startStatsInterval() {
@@ -139,28 +152,64 @@ export class WhatsAppManager {
     }, 5 * 60 * 1000); // Every 5 minutes
   }
 
-  private startWatchdog() {
+  private startWatchdog(sock: WASocket) {
     if (this.watchdogInterval) clearInterval(this.watchdogInterval);
     this.watchdogInterval = setInterval(async () => {
       if (this.isShuttingDown) return;
-      const sockUser = this.socket?.user;
-      if (!sockUser && !this.isShuttingDown) {
-        this.emitLog('warn', 'Watchdog: connection lost, attempting reconnect...', 'Watchdog');
+      // Check both the user object AND the WebSocket readyState (1 = OPEN)
+      const wsState = (sock as any).ws?.readyState;
+      const wsOpen = wsState === 1;
+      const hasUser = !!sock.user;
+      if (!hasUser || !wsOpen) {
+        this.emitLog('warn', `Watchdog: connection dead (user=${hasUser}, ws=${wsState}) — reconnecting`, 'Watchdog');
         this.isConnected = false;
         this.emit('disconnected', { reason: 'watchdog' });
-        try {
-          await this.connect(this.pairingPhone || undefined);
-        } catch (err: any) {
-          this.emitLog('error', `Watchdog reconnect failed: ${err.message}`, 'Watchdog');
+        this.stopHeartbeat();
+        try { sock.end(undefined); } catch {}
+        if (!this.isShuttingDown) {
+          await new Promise(r => setTimeout(r, 3000));
+          try { await this.connect(this.pairingPhone || undefined); } catch (err: any) {
+            this.emitLog('error', `Watchdog reconnect failed: ${err.message}`, 'Watchdog');
+          }
         }
       }
-    }, 30000);
+    }, 20000); // check every 20 seconds
   }
 
   private stopWatchdog() {
     if (this.watchdogInterval) {
       clearInterval(this.watchdogInterval);
       this.watchdogInterval = null;
+    }
+    this.stopHeartbeat();
+  }
+
+  // ── Presence heartbeat — sends a keep-alive to WhatsApp every 2 minutes ──
+  private startHeartbeat(sock: WASocket) {
+    if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
+    this.heartbeatInterval = setInterval(async () => {
+      if (this.isShuttingDown || !this.isConnected) return;
+      try {
+        await sock.sendPresenceUpdate('available');
+        log.debug('Heartbeat: presence update sent');
+      } catch (err: any) {
+        this.emitLog('warn', `Heartbeat failed — connection may be dead: ${err.message}`, 'Heartbeat');
+        this.isConnected = false;
+        this.emit('disconnected', { reason: 'heartbeat_fail' });
+        this.stopHeartbeat();
+        try { sock.end(undefined); } catch {}
+        if (!this.isShuttingDown) {
+          await new Promise(r => setTimeout(r, 3000));
+          this.connect(this.pairingPhone || undefined).catch(() => {});
+        }
+      }
+    }, 2 * 60 * 1000); // every 2 minutes
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
     }
   }
 
@@ -311,12 +360,12 @@ export class WhatsAppManager {
       } else if (connection === 'open') {
         this.reconnectAttempts = 0;
         this.isConnected = true;
+        this.activeSock = sock;
         this.emit('connected', { jid: sock.user?.id, name: sock.user?.name });
         this.emitLog('success', `Connected as ${sock.user?.name ?? sock.user?.id}`, 'Baileys');
-        if (this.config.alwaysOnline) {
-          await sock.sendPresenceUpdate('available').catch(() => {});
-        }
-        this.startWatchdog();
+        await sock.sendPresenceUpdate('available').catch(() => {});
+        this.startWatchdog(sock);
+        this.startHeartbeat(sock);
         this.emitStats();
         // Fetch real group count
         try {
@@ -495,7 +544,8 @@ export class WhatsAppManager {
   async disconnect() {
     this.isShuttingDown = true;
     this.isConnected = false;
-    this.stopWatchdog();
+    this.stopWatchdog(); // also stops heartbeat
+    this.activeSock = null;
     setNotifierSocket(null);
     if (this.socket) {
       await this.socket.logout().catch(() => {});
@@ -509,7 +559,8 @@ export class WhatsAppManager {
   async logout() {
     this.isShuttingDown = true;
     this.isConnected = false;
-    this.stopWatchdog();
+    this.stopWatchdog(); // also stops heartbeat
+    this.activeSock = null;
     if (this.socket) {
       await this.socket.logout().catch(() => {});
       this.socket.end(undefined);
