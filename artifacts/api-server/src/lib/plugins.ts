@@ -287,6 +287,7 @@ function wrapCmdHandler(
 
     const m: any = {
       key: message.key,
+      message: message.message,
       sender: senderId,
       chat: chatId,
       isGroup,

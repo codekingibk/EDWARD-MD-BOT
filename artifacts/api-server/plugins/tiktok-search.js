@@ -35,6 +35,13 @@ cmd({
       return reply("❌ No results found for your query. Please try a different keyword.");
     }
 
+    const BASE = 'https://www.tikwm.com';
+    const resolveUrl = (u) => {
+      if (!u) return null;
+      if (u.startsWith('http')) return u;
+      return BASE + u;
+    };
+
     for (const video of videos.slice(0, 5)) {
       const caption = `🎵 *TikTok Result*\n\n` +
         `*Title:* ${video.title || 'N/A'}\n` +
@@ -43,7 +50,7 @@ cmd({
         `*Views:* ${video.play_count || 0}\n` +
         `*URL:* https://www.tiktok.com/@${video.author?.unique_id}/video/${video.id}`;
 
-      const videoUrl = video.play || video.wmplay;
+      const videoUrl = resolveUrl(video.play) || resolveUrl(video.wmplay);
       if (videoUrl) {
         await conn.sendMessage(from, {
           video: { url: videoUrl },
