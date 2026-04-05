@@ -4,15 +4,30 @@ const OPENAI_URL = process.env.OPENAI_API_URL || 'https://api.openai.com/v1';
 const OPENAI_KEY = process.env.OPENAI_API_KEY || '';
 
 async function callAI(prompt, systemPrompt = 'You are a helpful AI assistant.') {
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: prompt }
+  ];
+
   const apis = [
+    // Primary: Pollinations.ai (free, no key)
+    async () => {
+      const { data } = await axios.post('https://text.pollinations.ai/openai', {
+        model: 'openai',
+        messages,
+        max_tokens: 700,
+        temperature: 0.7
+      }, { headers: { 'Content-Type': 'application/json' }, timeout: 30000 });
+      const answer = data.choices?.[0]?.message?.content?.trim();
+      if (answer) return answer;
+      throw new Error('No result');
+    },
+    // Fallback: OpenAI-compatible key (Pawan)
     async () => {
       if (!OPENAI_KEY) throw new Error('No API key');
       const { data } = await axios.post(`${OPENAI_URL}/chat/completions`, {
         model: 'gpt-3.5-turbo',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: prompt }
-        ],
+        messages,
         max_tokens: 500,
         temperature: 0.7
       }, {
@@ -21,19 +36,19 @@ async function callAI(prompt, systemPrompt = 'You are a helpful AI assistant.') 
       });
       return data.choices[0].message.content;
     },
+    // Fallback: Pawan v1
     async () => {
-      const { data } = await axios.get('https://api.maher-zubair.tech/ai/chatgpt', {
-        params: { query: prompt },
-        timeout: 30000
+      const { data } = await axios.post('https://api.pawan.krd/v1/chat/completions', {
+        model: 'pai-001',
+        messages,
+        max_tokens: 500,
+        temperature: 0.7
+      }, {
+        headers: { 'Authorization': `Bearer pk-pIWAlRroXTOAigkWdHcYvmlmgzEQXuoMWbVAaLAVZswSRbEB`, 'Content-Type': 'application/json' },
+        timeout: 25000
       });
-      if (data?.status && data?.result) return data.result;
-      throw new Error('No result');
-    },
-    async () => {
-      const { data } = await axios.get(`https://api.siputzx.my.id/api/ai/deepseek-r1?content=${encodeURIComponent(prompt)}`, {
-        timeout: 30000
-      });
-      if (data?.status && data?.data) return data.data;
+      const answer = data.choices?.[0]?.message?.content?.trim();
+      if (answer) return answer;
       throw new Error('No result');
     }
   ];

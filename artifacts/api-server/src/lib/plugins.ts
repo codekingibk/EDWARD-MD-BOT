@@ -286,6 +286,7 @@ function wrapCmdHandler(
       sock.sendMessage(chatId, { react: { text: emoji, key: message.key } }).catch(() => {});
 
     const m: any = {
+      key: message.key,
       sender: senderId,
       chat: chatId,
       isGroup,

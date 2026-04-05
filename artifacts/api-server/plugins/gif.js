@@ -14,9 +14,10 @@ export default {
             return;
         }
         try {
+            const giphyKey = config?.giphyApiKey || 'qnl7ssQChTdPjsKta2Ax2LMaGXz303tq';
             const response = await axios.get('https://api.giphy.com/v1/gifs/search', {
                 params: {
-                    api_key: config.giphyApiKey,
+                    api_key: giphyKey,
                     q: query,
                     limit: 1,
                     rating: 'g'

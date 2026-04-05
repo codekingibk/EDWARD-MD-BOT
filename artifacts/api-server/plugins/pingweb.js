@@ -6,11 +6,8 @@ export default {
     description: 'Check bot response time and ping a website',
     usage: '.pingweb [website URL]',
     async handler(sock, message, args, context) {
-        const { chatId, channelInfo, rawText } = context;
-        const prefix = rawText.match(/^[.!#]/)?.[0] || '.';
-        const commandPart = rawText.slice(prefix.length).trim();
-        const parts = commandPart.split(/\s+/);
-        const url = parts.slice(1).join(' ').trim();
+        const { chatId, channelInfo } = context;
+        const url = args.join(' ').trim();
         const startBot = Date.now();
         const sent = await sock.sendMessage(chatId, {
             text: '🏓 Pinging...',

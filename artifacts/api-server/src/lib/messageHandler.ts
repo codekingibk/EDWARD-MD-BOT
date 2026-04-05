@@ -240,12 +240,28 @@ export async function handleMessage(
         await sock.sendPresenceUpdate('composing', chatId).catch(() => {});
       }
 
+      let isBotAdmin = false;
+      if (isGroup) {
+        try {
+          const meta = await sock.groupMetadata(chatId);
+          const botIdBare = (sock.user?.id || '').split('@')[0].split(':')[0];
+          const botLidBare2 = (sock.user?.lid || '').split('@')[0].split(':')[0];
+          isBotAdmin = (meta.participants || []).some((p: any) => {
+            const pBare = (p.id || '').split('@')[0].split(':')[0];
+            const pLidBare = (p.lid || '').split('@')[0].split(':')[0];
+            return (pBare === botIdBare || (botLidBare2 && pLidBare === botLidBare2)) &&
+              (p.admin === 'admin' || p.admin === 'superadmin');
+          });
+        } catch {}
+      }
+
       const context = {
         chatId,
         senderId,
         isGroup,
         isOwner: isOwner || fromMe,
         isAdmin: false,
+        isBotAdmin,
         config,
         pluginStates,
         channelInfo: {},
