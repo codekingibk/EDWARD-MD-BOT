@@ -244,7 +244,7 @@ export async function handleMessage(
         chatId,
         senderId,
         isGroup,
-        isOwner,
+        isOwner: isOwner || fromMe,
         isAdmin: false,
         config,
         pluginStates,
