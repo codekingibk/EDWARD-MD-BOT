@@ -5,81 +5,95 @@ const os = require('os');
 const path = require("path");
 const { cmd } = require("../command");
 
-// Helper function to format bytes
-function formatBytes(bytes) {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+async function uploadToCatbox(buffer, extension) {
+  const form = new FormData();
+  form.append('fileToUpload', buffer, { filename: `image${extension}`, contentType: extension === '.png' ? 'image/png' : 'image/jpeg' });
+  form.append('reqtype', 'fileupload');
+  const res = await axios.post("https://catbox.moe/user/api.php", form, {
+    headers: form.getHeaders(), timeout: 30000
+  });
+  if (!res.data || !res.data.startsWith('http')) throw new Error('Catbox upload failed');
+  return res.data.trim();
+}
+
+async function removeBg(imageUrl) {
+  const apis = [
+    // Agatz.xyz rembg
+    async () => {
+      const { data } = await axios.get(`https://api.agatz.xyz/api/rembg?url=${encodeURIComponent(imageUrl)}`, {
+        responseType: 'arraybuffer', timeout: 60000
+      });
+      if (data && data.byteLength > 1000) return Buffer.from(data);
+      throw new Error('No data from agatz');
+    },
+    // Ryzendesu rmbg
+    async () => {
+      const { data } = await axios.get('https://api.ryzendesu.vip/api/tools/rmbg', {
+        params: { url: imageUrl }, responseType: 'arraybuffer', timeout: 60000
+      });
+      if (data && data.byteLength > 1000) return Buffer.from(data);
+      throw new Error('No data from ryzendesu');
+    },
+    // Pawan rmbg
+    async () => {
+      const { data } = await axios.get(`https://api.pawan.krd/removebg?url=${encodeURIComponent(imageUrl)}`, {
+        responseType: 'arraybuffer', timeout: 60000
+      });
+      if (data && data.byteLength > 1000) return Buffer.from(data);
+      throw new Error('No data from pawan');
+    },
+    // BK9 rmbg
+    async () => {
+      const { data } = await axios.get(`https://bk9.fun/api/removebg?url=${encodeURIComponent(imageUrl)}`, {
+        responseType: 'arraybuffer', timeout: 60000
+      });
+      if (data && data.byteLength > 1000) return Buffer.from(data);
+      throw new Error('No data from bk9');
+    }
+  ];
+
+  for (const fn of apis) {
+    try { return await fn(); } catch (e) { console.error('[rmbg] api error:', e.message); }
+  }
+  throw new Error('All remove-background APIs failed. Please try again later.');
 }
 
 cmd({
   pattern: "rmbg",
   alias: ["removebg"],
   react: '📸',
-  desc: "Scan and remove bg from images",
+  desc: "Remove background from an image",
   category: "img_edit",
   use: ".rmbg [reply to image]",
   filename: __filename
-}, async (conn, message, m,  { reply, mek }) => {
+}, async (conn, message, m, { reply }) => {
   try {
-    // Check if quoted message exists and has media
     const quotedMsg = message.quoted ? message.quoted : message;
     const mimeType = (quotedMsg.msg || quotedMsg).mimetype || '';
-    
+
     if (!mimeType || !mimeType.startsWith('image/')) {
-      return reply("Please reply to an image file (JPEG/PNG)");
+      return reply("📸 Please *reply to an image* to remove its background.\n\nSupports: JPEG, PNG");
     }
 
-    // Download the media
+    await conn.sendMessage(m.chat, { react: { text: '⏳', key: message.key } });
+    reply("⏳ Removing background, please wait...");
+
     const mediaBuffer = await quotedMsg.download();
-    const fileSize = formatBytes(mediaBuffer.length);
-    
-    // Get file extension based on mime type
-    let extension = '';
-    if (mimeType.includes('image/jpeg')) extension = '.jpg';
-    else if (mimeType.includes('image/png')) extension = '.png';
-    else {
-      return reply("Unsupported image format. Please use JPEG or PNG");
-    }
+    let extension = '.jpg';
+    if (mimeType.includes('png')) extension = '.png';
 
-    const tempFilePath = path.join(os.tmpdir(), `imgscan_${Date.now()}${extension}`);
-    fs.writeFileSync(tempFilePath, mediaBuffer);
-
-    // Upload to Catbox
-    const form = new FormData();
-    form.append('fileToUpload', fs.createReadStream(tempFilePath), `image${extension}`);
-    form.append('reqtype', 'fileupload');
-
-    const uploadResponse = await axios.post("https://catbox.moe/user/api.php", form, {
-      headers: form.getHeaders()
-    });
-
-    const imageUrl = uploadResponse.data;
-    fs.unlinkSync(tempFilePath); // Clean up temp file
-
-    if (!imageUrl) {
-      throw "Failed to upload image to Catbox";
-    }
-
-    // Scan the image using the API
-    const apiUrl = `https://apis.davidcyriltech.my.id/removebg?url=${encodeURIComponent(imageUrl)}`;
-    const response = await axios.get(apiUrl, { responseType: "arraybuffer" });
-
-    if (!response || !response.data) {
-      return reply("Error: The API did not return a valid image. Try again later.");
-    }
-
-    const imageBuffer = Buffer.from(response.data, "binary");
+    const imageUrl = await uploadToCatbox(mediaBuffer, extension);
+    const resultBuffer = await removeBg(imageUrl);
 
     await conn.sendMessage(m.chat, {
-      image: imageBuffer,
-      caption: `Background removed\n\n> *EDWARD MD*`
-    });
+      image: resultBuffer,
+      caption: `✅ Background removed!\n\n> *EDWARD MD*`
+    }, { quoted: message });
 
+    await conn.sendMessage(m.chat, { react: { text: '✅', key: message.key } });
   } catch (error) {
-    console.error("Rmbg Error:", error);
-    reply(`An error occurred: ${error.response?.data?.message || error.message || "Unknown error"}`);
+    console.error("Rmbg Error:", error.message);
+    await conn.sendMessage(m.chat, { react: { text: '❌', key: message.key } });
+    reply(`❌ Failed to remove background: ${error.message}`);
   }
 });

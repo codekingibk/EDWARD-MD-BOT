@@ -1,30 +1,48 @@
 import axios from 'axios';
 
-async function downloadSoundCloud(url, retries = 3) {
+async function downloadSoundCloud(url) {
   const apis = [
+    // Cobalt.tools — best maintained free multi-platform downloader
+    async () => {
+      const { data } = await axios.post('https://co.wuk.sh/api/json', {
+        url,
+        isAudioOnly: true,
+        aFormat: 'mp3'
+      }, {
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        timeout: 30000
+      });
+      if (data?.url) return { dl_link: data.url, title: data.filename?.replace(/\.[^.]+$/, '') || 'SoundCloud Track', artist: '' };
+      throw new Error('No URL from cobalt');
+    },
+    // Ryzendesu API
+    async () => {
+      const { data } = await axios.get('https://api.ryzendesu.vip/api/downloader/soundcloud', {
+        params: { url },
+        timeout: 30000
+      });
+      const link = data?.data?.url || data?.url || data?.download_url;
+      if (link) return { dl_link: link, title: data?.data?.title || data?.title || 'SoundCloud Track', artist: data?.data?.author || '' };
+      throw new Error('No link from ryzendesu');
+    },
+    // Siputzx API
+    async () => {
+      const { data } = await axios.get('https://api.siputzx.my.id/api/d/soundcloud', {
+        params: { url },
+        timeout: 30000
+      });
+      const link = data?.data?.url || data?.url;
+      if (data?.status && link) return { dl_link: link, title: data?.data?.title || 'SoundCloud Track', artist: '' };
+      throw new Error('No link from siputzx');
+    },
+    // Fabdl fallback
     async () => {
       const { data } = await axios.get('https://api.fabdl.com/soundcloud/get', {
         params: { url },
         timeout: 30000
       });
       if (data?.status && data?.result?.dl_link) return data.result;
-      throw new Error('No download link');
-    },
-    async () => {
-      const { data } = await axios.get(`https://api.maher-zubair.tech/download/soundcloud?url=${encodeURIComponent(url)}`, {
-        timeout: 30000
-      });
-      if (data?.status && (data?.result?.dl_url || data?.result?.link)) {
-        return { dl_link: data.result.dl_url || data.result.link, title: data.result.title, artist: data.result.artist, image: data.result.thumbnail };
-      }
-      throw new Error('No download link');
-    },
-    async () => {
-      const { data } = await axios.get(`https://bk9.fun/download/soundcloud?url=${encodeURIComponent(url)}`, {
-        timeout: 30000
-      });
-      if (data?.status && data?.BK9?.dl_link) return { dl_link: data.BK9.dl_link, title: data.BK9.title, artist: data.BK9.artist, image: data.BK9.image };
-      throw new Error('No download link');
+      throw new Error('No link from fabdl');
     }
   ];
 
