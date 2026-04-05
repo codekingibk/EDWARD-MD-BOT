@@ -5,6 +5,11 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 import path from "path";
 import { existsSync } from "fs";
+import { fileURLToPath } from "url";
+
+// Resolve relative to the built dist file so static files are found correctly
+// regardless of process.cwd() (which varies between dev and Render production).
+const __distDir = path.dirname(fileURLToPath(import.meta.url));
 
 const app: Express = express();
 
@@ -35,7 +40,8 @@ app.use("/api", router);
 
 // ── Serve built frontend in production ──────────────────────────────────────
 if (process.env.NODE_ENV === 'production') {
-  const staticDir = path.join(process.cwd(), 'public');
+  // __distDir = artifacts/api-server/dist/ → public is one level up
+  const staticDir = path.resolve(__distDir, '..', 'public');
   if (existsSync(staticDir)) {
     app.use(express.static(staticDir));
     app.get('*', (_req, res) => {
