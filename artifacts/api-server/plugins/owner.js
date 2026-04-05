@@ -8,15 +8,28 @@ export default {
         const chatId = context.chatId || message.key.remoteJid;
         const config = context.config;
         try {
-            const vcard = `
-BEGIN:VCARD
-VERSION:3.0
-FN:${config.botOwner}
-TEL;waid=${config.ownerNumber}:${config.ownerNumber}
-END:VCARD
-      `.trim();
+            const ownerNumber = (config.ownerNumber || '').replace(/[^0-9]/g, '');
+            const ownerName = config.botOwner || 'Bot Owner';
+
+            if (!ownerNumber) {
+                return await sock.sendMessage(chatId, {
+                    text: '⚠️ Owner number is not configured.'
+                }, { quoted: message });
+            }
+
+            const vcard = [
+                'BEGIN:VCARD',
+                'VERSION:3.0',
+                `FN:${ownerName}`,
+                `TEL;type=CELL;type=VOICE;waid=${ownerNumber}:+${ownerNumber}`,
+                'END:VCARD'
+            ].join('\n');
+
             await sock.sendMessage(chatId, {
-                contacts: { displayName: config.botOwner, contacts: [{ vcard }] },
+                contacts: {
+                    displayName: ownerName,
+                    contacts: [{ vcard }]
+                },
             }, { quoted: message });
         }
         catch (error) {

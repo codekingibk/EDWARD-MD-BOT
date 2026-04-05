@@ -1,28 +1,46 @@
 const { cmd } = require('../command');
 const axios = require('axios');
 
-const OPENAI_KEY = process.env.OPENAI_API_KEY || 'pk-pIWAlRroXTOAigkWdHcYvmlmgzEQXuoMWbVAaLAVZswSRbEB';
-const OPENAI_BASE = process.env.OPENAI_BASE_URL || 'https://api.pawan.krd/cosmosrp/v1';
+const PAWAN_KEY = process.env.OPENAI_API_KEY || 'pk-pIWAlRroXTOAigkWdHcYvmlmgzEQXuoMWbVAaLAVZswSRbEB';
 
 async function askAI(prompt, system = 'You are EDWARD MD, a helpful WhatsApp AI assistant. Be concise and helpful. Reply in English.') {
+  const messages = [
+    { role: 'system', content: system },
+    { role: 'user', content: prompt }
+  ];
+
+  // Primary: Pollinations.ai (free, no key needed)
   try {
-    const res = await axios.post(`${OPENAI_BASE}/chat/completions`, {
-      model: 'gpt-3.5-turbo',
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: prompt }
-      ],
+    const res = await axios.post('https://text.pollinations.ai/openai', {
+      model: 'openai',
+      messages,
+      max_tokens: 1024,
+      temperature: 0.7,
+    }, { headers: { 'Content-Type': 'application/json' }, timeout: 30000 });
+    const answer = res.data.choices?.[0]?.message?.content?.trim();
+    if (answer) return answer;
+  } catch (e) {
+    console.error('Pollinations AI error:', e.response?.data || e.message);
+  }
+
+  // Fallback: Pawan.krd
+  try {
+    const res = await axios.post('https://api.pawan.krd/v1/chat/completions', {
+      model: 'pai-001',
+      messages,
       max_tokens: 1024,
       temperature: 0.7,
     }, {
-      headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
-      timeout: 30000,
+      headers: { 'Authorization': `Bearer ${PAWAN_KEY}`, 'Content-Type': 'application/json' },
+      timeout: 25000,
     });
-    return res.data.choices?.[0]?.message?.content?.trim() || null;
+    const answer = res.data.choices?.[0]?.message?.content?.trim();
+    if (answer) return answer;
   } catch (e) {
-    console.error('askAI error:', e.response?.data || e.message);
-    return null;
+    console.error('Pawan AI error:', e.response?.data || e.message);
   }
+
+  return null;
 }
 
 cmd({

@@ -217,43 +217,46 @@ function buildChannelContextInfo(config: Record<string, any>): any {
   };
 }
 
-async function computeAdminStatus(sock: any, chatId: string, senderId: string, isGroup: boolean): Promise<{ isAdmins: boolean; isBotAdmins: boolean }> {
-  if (!isGroup) return { isAdmins: false, isBotAdmins: false };
+async function computeGroupInfo(sock: any, chatId: string, senderId: string, isGroup: boolean): Promise<{
+  isAdmins: boolean; isBotAdmins: boolean;
+  groupMetadata: any; participants: any[]; groupAdmins: any[]; groupName: string;
+}> {
+  const empty = { isAdmins: false, isBotAdmins: false, groupMetadata: null, participants: [], groupAdmins: [], groupName: '' };
+  if (!isGroup) return empty;
   try {
     const metadata = await sock.groupMetadata(chatId);
-    const participants = metadata.participants || [];
+    const participants = metadata?.participants || [];
+    const groupName = metadata?.subject || '';
 
     const botId: string = sock.user?.id || '';
     const botLid: string = sock.user?.lid || '';
-    // Strip device suffix and @domain to get bare number/id
     const bareId = (jid: string) => jid.split('@')[0].split(':')[0];
     const botNumber = bareId(botId);
     const botLidBare = bareId(botLid);
 
-    // Resolve sender: if it's a LID, find the real phone-number JID in participants
     let resolvedSenderId = senderId;
     if (senderId.endsWith('@lid')) {
-      const match = participants.find((p: any) => p.lid === senderId || bareId(p.lid || '') === bareId(senderId));
+      const match = participants.find((p: any) => bareId(p.lid || '') === bareId(senderId));
       if (match?.id) resolvedSenderId = match.id;
     }
     const senderBare = bareId(resolvedSenderId);
 
-    const isAdmin = (p: any) => p.admin === 'admin' || p.admin === 'superadmin';
-
+    const isAdminRole = (p: any) => p.admin === 'admin' || p.admin === 'superadmin';
     const participantMatches = (p: any, targetBare: string) => {
       const pIdBare = bareId(p.id || '');
       const pLidBare = bareId(p.lid || '');
       return pIdBare === targetBare || pLidBare === targetBare;
     };
 
-    const isAdmins = participants.some((p: any) => participantMatches(p, senderBare) && isAdmin(p));
+    const groupAdmins = participants.filter((p: any) => isAdminRole(p));
+    const isAdmins = participants.some((p: any) => participantMatches(p, senderBare) && isAdminRole(p));
     const isBotAdmins = participants.some((p: any) =>
-      (participantMatches(p, botNumber) || (botLidBare && participantMatches(p, botLidBare))) && isAdmin(p)
+      (participantMatches(p, botNumber) || (botLidBare && participantMatches(p, botLidBare))) && isAdminRole(p)
     );
 
-    return { isAdmins, isBotAdmins };
+    return { isAdmins, isBotAdmins, groupMetadata: metadata, participants, groupAdmins, groupName };
   } catch {
-    return { isAdmins: false, isBotAdmins: false };
+    return empty;
   }
 }
 
@@ -304,7 +307,7 @@ function wrapCmdHandler(
       inner?.videoMessage?.caption ||
       inner?.documentMessage?.caption || '';
 
-    const { isAdmins, isBotAdmins } = await computeAdminStatus(sock, chatId, senderId, isGroup);
+    const { isAdmins, isBotAdmins, groupMetadata, participants, groupAdmins, groupName } = await computeGroupInfo(sock, chatId, senderId, isGroup);
 
     const helpers = {
       from: chatId,
@@ -318,6 +321,10 @@ function wrapCmdHandler(
       isAdmin: isAdmins,
       isAdmins,
       isBotAdmins,
+      groupMetadata,
+      participants,
+      groupAdmins,
+      groupName,
       senderNumber: senderId.split('@')[0].split(':')[0],
       prefix: config?.prefix || '.',
       reply,
