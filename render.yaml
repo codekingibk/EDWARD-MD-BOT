@@ -36,10 +36,10 @@ services:
       - key: ADMIN_SECRET
         generateValue: true
 
-      # ── MongoDB — set your Atlas connection string here ─────────────────────
+      # ── MongoDB ─────────────────────────────────────────────────────────────
       - key: MONGODB_URI
-        value: ""
+        value: "mongodb+srv://gboyegaibk:Oyinlola%40007@edwardbotplatform.o2ltmpx.mongodb.net/?appName=Edwardbotplatform"
 
-      # ── Keep-alive — Render auto-provides RENDER_EXTERNAL_URL ──────────────
+      # ── Keep-alive self-ping ─────────────────────────────────────────────────
       - key: SELF_URL
-        value: ""
+        value: "https://edward-md-lr5l.onrender.com"
