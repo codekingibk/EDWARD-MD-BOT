@@ -285,7 +285,7 @@ export class WhatsAppManager {
       getMessage: async () => undefined,
       syncFullHistory: false,
       qrTimeout: 300_000,
-      keepAliveIntervalMs: 15000,
+      keepAliveIntervalMs: 10000,
     });
 
     this.socket = sock;

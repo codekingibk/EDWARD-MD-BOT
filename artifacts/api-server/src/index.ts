@@ -95,4 +95,22 @@ httpServer.listen(port, async (err?: Error) => {
   } catch (err: any) {
     logger.warn({ err: err.message }, "Plugin startup load error (non-fatal)");
   }
+
+  // ── Auto-reconnect: if a saved session exists, connect immediately ────────
+  // This means after every Render restart/wake-up the bot comes back online
+  // without anyone having to click "Connect" in the dashboard.
+  try {
+    const wa = getWhatsAppManager();
+    if (wa.hasExistingSession()) {
+      logger.info("Existing WhatsApp session found — auto-connecting...");
+      io.emit("log", { level: "info", message: "Saved session detected — auto-connecting bot...", source: "System" });
+      wa.connect().catch((e: any) => {
+        logger.warn({ err: e.message }, "Auto-connect failed (manual connect required)");
+      });
+    } else {
+      logger.info("No saved WhatsApp session — waiting for manual pairing");
+    }
+  } catch (e: any) {
+    logger.warn({ err: e.message }, "Auto-connect check failed");
+  }
 });
