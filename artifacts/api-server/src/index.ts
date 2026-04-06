@@ -8,6 +8,14 @@ import { downloadAllPlugins, loadPlugins } from "./lib/plugins";
 import { startKeepAlive } from "./lib/keepalive";
 import { connectDatabase, getUserCount, getServerInfo, isConnected as isDbConnected } from "./lib/database";
 
+/** Wait up to `maxMs` for MongoDB to connect, then continue regardless */
+async function waitForDb(maxMs = 15_000): Promise<void> {
+  const start = Date.now();
+  while (!isDbConnected() && Date.now() - start < maxMs) {
+    await new Promise(r => setTimeout(r, 500));
+  }
+}
+
 // ── Crash guards — log and continue instead of dying ──────────────────────────
 process.on('uncaughtException', (err) => {
   logger.error({ err: err.message, stack: err.stack }, 'Uncaught exception — keeping process alive');
@@ -97,11 +105,11 @@ httpServer.listen(port, async (err?: Error) => {
   }
 
   // ── Auto-reconnect: if a saved session exists, connect immediately ────────
-  // This means after every Render restart/wake-up the bot comes back online
-  // without anyone having to click "Connect" in the dashboard.
+  // Wait briefly for MongoDB so we can check the persistent session there.
+  await waitForDb(15_000);
   try {
     const wa = getWhatsAppManager();
-    if (wa.hasExistingSession()) {
+    if (await wa.hasExistingSession()) {
       logger.info("Existing WhatsApp session found — auto-connecting...");
       io.emit("log", { level: "info", message: "Saved session detected — auto-connecting bot...", source: "System" });
       wa.connect().catch((e: any) => {

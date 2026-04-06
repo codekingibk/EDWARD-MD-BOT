@@ -11,6 +11,7 @@ import { handleMessage, handleCall, type HandlerConfig } from './messageHandler'
 import { loadPlugins, getAllPluginsMeta } from './plugins';
 import { setNotifierSocket, setNotifierConfig, notifyConnected } from './notifier';
 import { getUserCount, isConnected as isDbConnected } from './database';
+import { useMongoAuthState, mongoAuthExists, clearMongoAuth } from './mongoAuthState';
 
 const log = logger.child({ module: 'WhatsApp' });
 
@@ -115,7 +116,15 @@ export class WhatsAppManager {
 
   getAuthDir() { return this.authDir; }
 
-  hasExistingSession(): boolean {
+  async hasExistingSession(): Promise<boolean> {
+    // Prefer MongoDB session check when DB is available
+    if (isDbConnected()) {
+      try {
+        const exists = await mongoAuthExists();
+        if (exists) return true;
+      } catch {}
+    }
+    // Fallback: check file-based auth
     try {
       const files = readdirSync(this.authDir);
       return files.some(f => f.endsWith('.json'));
@@ -230,13 +239,18 @@ export class WhatsAppManager {
   }
 
   clearSession() {
+    // Clear file-based auth
     try {
       rmSync(this.authDir, { recursive: true, force: true });
       mkdirSync(this.authDir, { recursive: true });
-      this.emitLog('info', 'Session cleared — ready for fresh connection', 'Session');
     } catch (err: any) {
-      this.emitLog('warn', `Could not clear session: ${err.message}`, 'Session');
+      this.emitLog('warn', `Could not clear file session: ${err.message}`, 'Session');
     }
+    // Clear MongoDB auth (non-blocking)
+    if (isDbConnected()) {
+      clearMongoAuth().catch(() => {});
+    }
+    this.emitLog('info', 'Session cleared — ready for fresh connection', 'Session');
   }
 
   async connect(pairingPhone?: string) {
@@ -270,7 +284,13 @@ export class WhatsAppManager {
     const { version, isLatest } = await fetchLatestBaileysVersion();
     this.emitLog('info', `Using WA v${version.join('.')} (latest: ${isLatest})`, 'Baileys');
 
-    const { state, saveCreds } = await useMultiFileAuthState(this.authDir);
+    // Use MongoDB auth state when DB is available — session survives deploys
+    const { state, saveCreds } = isDbConnected()
+      ? await useMongoAuthState()
+      : await useMultiFileAuthState(this.authDir);
+
+    const authSource = isDbConnected() ? 'MongoDB' : 'file system';
+    this.emitLog('info', `Loading auth state from ${authSource}`, 'Auth');
 
     const sock = makeWASocket({
       version,
