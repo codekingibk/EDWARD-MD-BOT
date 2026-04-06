@@ -106,7 +106,7 @@ httpServer.listen(port, async (err?: Error) => {
 
   // ── Auto-reconnect: if a saved session exists, connect immediately ────────
   // Wait briefly for MongoDB so we can check the persistent session there.
-  await waitForDb(15_000);
+  await waitForDb(35_000);
   try {
     const wa = getWhatsAppManager();
     if (await wa.hasExistingSession()) {

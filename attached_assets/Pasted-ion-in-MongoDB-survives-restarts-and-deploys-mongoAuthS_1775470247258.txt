@@ -1,0 +1,71 @@
+ion in MongoDB — survives restarts and deploys - mongoAuthState.ts: new module implementing MongoDB-backed Baileys auth state - All credentials and signal keys stored in __wa_auth_state__ collection - Uses BufferJSON for proper serialization of binary data - clearMongoAuth() wipes session from DB (used on logout/re-pair) - mongoAuthExists() checks if a persistent session exists in DB - whatsapp.ts: use MongoDB auth when DB is connected, file auth as fallback - hasExistingSession() now checks MongoDB first, then files (made async) - clearSession() now clears both file auth AND MongoDB auth - Logs which auth source is being used on connect - index.ts: wait up to 15s for MongoDB before auto-connect check - Ensures session check reads from MongoDB, not stale files
+
+All logs
+Search
+Search
+
+Apr 6, 10:57 AM - 11:01 AM
+GMT+1
+
+
+
+> vite build --config vite.config.ts
+vite v7.3.1 building client environment for production...
+transforming...
+✓ 1718 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/public/index.html                   0.74 kB │ gzip:   0.42 kB
+dist/public/assets/index-CYfgz550.css  107.93 kB │ gzip:  16.66 kB
+dist/public/assets/index-pAnC1qjg.js   501.98 kB │ gzip: 139.64 kB
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2.65s
+> @workspace/api-server@0.0.0 build /opt/render/project/src/artifacts/api-server
+> node ./build.mjs
+  dist/index.mjs                       4.9mb ⚠️
+  dist/pino-worker.mjs               153.4kb
+  dist/pino-file.mjs                 142.1kb
+  dist/pino-pretty.mjs               114.6kb
+  dist/thread-stream-worker.mjs        7.3kb
+  dist/index.mjs.map                   8.7mb
+  dist/pino-worker.mjs.map           256.9kb
+  dist/pino-file.mjs.map             229.0kb
+  dist/pino-pretty.mjs.map           203.9kb
+  dist/thread-stream-worker.mjs.map   12.0kb
+⚡ Done in 687ms
+==> Uploading build...
+==> Uploaded in 6.8s. Compression took 6.5s
+==> Build successful 🎉
+==> Deploying...
+==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
+==> Running 'node artifacts/api-server/dist/index.mjs'
+{"level":30,"time":1775469604460,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","module":"KeepAlive","url":"https://edward-md-lr5l.onrender.com/healthz","intervalMin":2,"msg":"KeepAlive started"}
+Menu
+{"level":30,"time":1775469604554,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","port":10000,"msg":"EDWARD MD API Server listening with Socket.IO"}
+{"level":30,"time":1775469604554,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","msg":"Downloading and loading plugins at startup..."}
+{"level":30,"time":1775469604555,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","msg":"Downloading 5 plugins from MEGA-MD...","msg":"Plugin download"}
+{"level":30,"time":1775469605150,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","req":{"id":1,"method":"HEAD","url":"/"},"res":{"statusCode":200},"responseTime":44,"msg":"request completed"}
+{"level":30,"time":1775469605250,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","msg":"Downloaded 0/5 plugins...","msg":"Plugin download"}
+[STORE] Using JSON - Max 20 messages per chat
+{"level":30,"time":1775469605250,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","msg":"Plugin download complete: 0/5 successful","msg":"Plugin download"}
+{"level":30,"time":1775469615345,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","module":"PluginLoader","loaded":466,"total":226,"msg":"Plugins loaded"}
+{"level":30,"time":1775469615345,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","msg":"Plugins ready"}
+{"level":50,"time":1775469615350,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","module":"Database","err":"Server selection timed out after 10000 ms","msg":"MongoDB connection failed — running in memory-only mode"}
+{"level":40,"time":1775469615350,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","msg":"Running without persistent database — users tracked in memory only"}
+{"level":30,"time":1775469615443,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","req":{"id":2,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":4,"msg":"request completed"}
+{"level":30,"time":1775469615446,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","req":
+
+{"level":30,"time":1775469674146,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","module":"PluginLoader","loaded":466,"total":226,"msg":"Plugins loaded"}
+{"level":30,"time":1775469674146,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","module":"WhatsApp","source":"PluginLoader","msg":"Plugins ready"}
+{"level":30,"time":1775469674179,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","module":"WhatsApp","source":"Baileys","msg":"Using WA v2.3000.1035194821 (latest: true)"}
+Menu
+{"level":30,"time":1775469674552,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","module":"WhatsApp","source":"Auth","msg":"Loading auth state from file system"}
+{"level":30,"time":1775469674655,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","module":"WhatsApp","source":"Baileys","msg":"Connecting to WhatsApp..."}
+{"level":30,"time":1775469674819,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","module":"Baileys","browser":["Ubuntu","Chrome","22.04.4"],"helloMsg":{"clientHello":{"ephemeral":"2z/Il58VFqExbdLmS/02hilAvtR3i7NoWqKzMeb9ohQ="}},"msg":"connected to WA"}
+{"level":30,"time":1775469674887,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","module":"Baileys","node":{"passive":false,"userAgent":{"platform":"WEB","appVersion":{"primary":2,"secondary":3000,"tertiary":1035194821},"mcc":"000","mnc":"000","osVersion":"0.1","device":"Desktop","osBuildNumber":"0.1","releaseChannel":"RELEASE","localeLanguageIso6391":"en","localeCountryIso31661Alpha2":"US"},"webInfo":{"webSubPlatform":"WEB_BROWSER"},"connectType":"WIFI_UNKNOWN","connectReason":"USER_ACTIVATED","devicePairingData":{"eRegid":"AAAAMQ==","eKeytype":"BQ==","eIdent":"HRl4uviG9+4SaN+0vtdAhTGDFcBHbYhLWxNx5WqSo2g=","eSkeyId":"AAAB","eSkeyVal":"iMgskR9d6UW31Vswk6qiLsgRzwVaM2k5DDYoiCG05SM=","eSkeySig":"8eWdDBu+tdfbnJlpebJj+Kp80ZAoRfFY2t6bsghmBWK4swpUqdgl+5rH52+QFT4/fltyxyNN9pQ6KW5GUevyDA==","buildHash":"oslHHv+RCp4a5lmJCiiHLQ==","deviceProps":"CgZVYnVudHUSBggKEA8YBxgBIAAqFxiAUCABMAA4AUABSAFQAVgBYAFwAXgA"},"pull":false},"msg":"not logged in, attempting registration..."}
+{"level":30,"time":1775469675843,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","module":"WhatsApp","source":"Pairing","msg":"QR code generated — scan with WhatsApp"}
+{"level":30,"time":1775469675845,"pid":68,"hostname":"srv-d790ck95pdvs73bc1ed0-hibernate-698875b9d7-x5rr2","req":{"id":30,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+Need better ways to work with logs? Try theRender CLI, Render MCP Server, or set up a log stream integration 

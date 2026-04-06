@@ -107,9 +107,9 @@ export class WhatsAppManager {
     // Use STORAGE_DIR so auth survives same-session restarts on Render
     const storageBase = process.env['STORAGE_DIR'] || process.cwd();
     this.authDir = path.join(storageBase, 'wa-auth');
-    if (!existsSync(this.authDir)) {
-      mkdirSync(this.authDir, { recursive: true });
-    }
+    // Always wipe stale files on startup — MongoDB is the source of truth.
+    // Stale files from old deploys cause QR-loop reconnect failures.
+    this.clearStaleFileAuth();
     this.startStatsInterval();
     this.startHistoryTracking();
   }
@@ -117,18 +117,22 @@ export class WhatsAppManager {
   getAuthDir() { return this.authDir; }
 
   async hasExistingSession(): Promise<boolean> {
-    // Prefer MongoDB session check when DB is available
-    if (isDbConnected()) {
-      try {
-        const exists = await mongoAuthExists();
-        if (exists) return true;
-      } catch {}
-    }
-    // Fallback: check file-based auth
+    // Only trust MongoDB-stored sessions for auto-connect.
+    // File sessions may be stale (old deploy artifacts) and cause QR loops.
+    if (!isDbConnected()) return false;
     try {
-      const files = readdirSync(this.authDir);
-      return files.some(f => f.endsWith('.json'));
+      return await mongoAuthExists();
     } catch { return false; }
+  }
+
+  /** Wipe stale file-based auth on startup so they never cause fallback loops */
+  private clearStaleFileAuth() {
+    try {
+      if (existsSync(this.authDir)) {
+        rmSync(this.authDir, { recursive: true, force: true });
+      }
+      mkdirSync(this.authDir, { recursive: true });
+    } catch {}
   }
 
   private startStatsInterval() {
